@@ -27,7 +27,7 @@ def do_single_step(state, count=1):
         idx = state["trace_index"]
 
         if idx + 1 >= len(trace):
-            break
+            break  # end of trace
 
         # advance
         idx += 1
@@ -40,12 +40,12 @@ def do_single_step(state, count=1):
         state["registers"]["step"] = idx
         state["registers"]["pages"] = accessed_pages
 
-        # stop early if breakpoint
+        # stop if breakpoint hit
         if idx in state["breakpoints"]:
             print(f"breakpoint hit at step {idx}")
             break
 
-    # summary output only
+    # ---- summary printed ONLY ONCE ----
     if steps_done > 0:
         plural = "step" if steps_done == 1 else "steps"
         print(f"performed {steps_done} {plural}")
@@ -118,6 +118,7 @@ def interpret_command(command, state):
     if cmd == "page-step":
         page_step_command(state)
 
+
     if cmd == "step":
         count = 1
         if len(parts) == 2:
@@ -126,15 +127,10 @@ def interpret_command(command, state):
             except ValueError:
                 print("step: argument must be an integer")
                 return
-        for _ in range(count):
-            prev = state["trace_index"]
-            do_single_step(state)
-            if state["trace_index"] == prev:
-                break  # end of trace
-            if state["trace_index"] in state["breakpoints"]:
-                break
-            
+
+        do_single_step(state, count)
         return
+
 
     if cmd == "break" and len(parts) == 2:
         break_command(parts[1], state)
