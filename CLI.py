@@ -7,7 +7,7 @@ Available commands:
   quit
   load-trace path
   page-step          # do a page step
-  single-step        # do 1 step 
+  step               # do 1 step 
   break <step>       # set breakpoint on a step index
   unbreak <step>     # remove breakpoint
   breakpoints        # list breakpoints
@@ -16,8 +16,34 @@ Available commands:
 
 
 def do_single_step(state):
-        #TODO implement 
-        pass 
+    trace = state["trace"]
+    idx = state["trace_index"]
+
+    if not trace:
+        print("no trace loaded")
+        return
+
+    if idx + 1 >= len(trace):
+        print("end of trace")
+        return
+
+    # move one step forward
+    idx += 1
+    state["trace_index"] = idx
+
+    # update "registers"
+    event = trace[idx]  # dictionary {signal : value}
+    accessed_pages = {sig for sig, val in event.items() if val == "1"}
+
+    state["registers"]["step"] = idx
+    state["registers"]["pages"] = accessed_pages
+
+    # print output
+    print(f"step {idx} (of {len(trace) - 1})")
+
+    #breakpoint?
+    if idx in state["breakpoints"]:
+        print(f" breakpoint hit at step {idx} ")
 
 
 def page_step_command(state):
@@ -66,28 +92,35 @@ def interpret_command(command, state):
     if cmd == "quit":
         exit(0)
 
-    elif cmd == "help":
+    if cmd == "help":
         print_help()
 
-    elif cmd == "page-step":
+    if cmd == "page-step":
         page_step_command(state)
 
-    elif cmd == "single-step":
+    if cmd == "step":
         do_single_step(state)
 
-    elif cmd == "break" and len(parts) == 2:
+    if cmd == "break" and len(parts) == 2:
         break_command(parts[1], state)
 
-    elif cmd == "unbreak" and len(parts) == 2:
+    if cmd == "unbreak" and len(parts) == 2:
         unbreak_command(parts[1], state)
 
-    elif cmd == "breakpoints":
+    if cmd == "breakpoints":
         show_breakpoints(state)
 
-    elif cmd == "registers":
+    if cmd == "registers":
         registers_command(state)
 
-    else:
+    
+   
+    VALID_COMMANDS = [
+        "load-trace", "quit", "help", "page-step", "step",
+        "break", "unbreak", "breakpoints", "registers"
+    ]
+
+    if cmd not in VALID_COMMANDS:
         print("no valid command")
 
 
@@ -110,24 +143,6 @@ def load_vcd_trace(path):
     for t in sorted(time_map.keys()):
         events.append(time_map[t])
 
-    
-    """
-    # ============================
-    # DEBUG: toon eerste 20 signalen
-    # ============================
-    print("\n--- VCD SIGNALS FOUND ---")
-    count = 0
-    for sig_id, signal in vcd.data.items():
-        # probeer naam/commentaar te vinden
-        ref = getattr(signal, "reference", None)
-        if ref is None and hasattr(signal, "references"):
-            ref = signal.references
-        print(f"  id {sig_id!r}  ->  {ref}")
-        count += 1
-        if count >= 500:
-            break
-    print("--- END SIGNAL LIST ---\n")
-    """
 
     return events
 
