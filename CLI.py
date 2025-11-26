@@ -1,9 +1,11 @@
+from vcdvcd import VCDVCD
 
 def print_help():
     print("""
 Available commands:
   help
   quit
+  load-trace path
   page-step          # do a page step
   single-step        # do 1 step 
   break <step>       # set breakpoint on a step index
@@ -48,6 +50,15 @@ def interpret_command(command, state):
         return
     cmd = parts[0]
 
+    if cmd == "load-trace":
+        if len(parts) < 2:
+            print("usage: load-trace <path>")
+            return
+        events = load_vcd_trace(parts[1])
+        state["trace"] = events
+        state["trace_index"] = -1
+        print(f"Loaded trace with {len(events)} timestamps.")
+
     if cmd == "quit":
         exit(0)
 
@@ -76,6 +87,28 @@ def interpret_command(command, state):
         print("no valid command")
 
 
+def load_vcd_trace(path):
+    vcd = VCDVCD(path)   # store_tvs=True is default
+
+    # time -> {signal_name: value}
+    time_map = {}
+
+    for sig_name, signal in vcd.data.items():
+        # signal.tv is een lijst van (time, value)
+        for t, val in signal.tv:
+            t = int(t)
+            if t not in time_map:
+                time_map[t] = {}
+            time_map[t][sig_name] = val
+
+    # Maak een geordende lijst van "events" per tijd
+    events = []
+    for t in sorted(time_map.keys()):
+        events.append(time_map[t])
+
+    return events
+
+
 
 
 def main():
@@ -85,7 +118,7 @@ def main():
     state = {
         "breakpoints": set(),
         "registers": {},
-        "rsa_trace": [],
+        "trace": [],          # hier bewaren we de VCD-events
         "trace_index": -1,
     }
 
@@ -96,4 +129,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
