@@ -7,44 +7,51 @@ Available commands:
   quit
   load-trace path
   page-step          # do a page step
-  step               # do 1 step 
+  step <optional: amount of steps>    # do 1 step or a given amount of 
   break <step>       # set breakpoint on a step index
   unbreak <step>     # remove breakpoint
   breakpoints        # list breakpoints
   registers          # show current 'registers'
 """)
 
-
-def do_single_step(state):
+def do_single_step(state, count=1):
     trace = state["trace"]
-    idx = state["trace_index"]
 
     if not trace:
         print("no trace loaded")
         return
 
-    if idx + 1 >= len(trace):
+    steps_done = 0
+
+    for _ in range(count):
+        idx = state["trace_index"]
+
+        if idx + 1 >= len(trace):
+            break
+
+        # advance
+        idx += 1
+        state["trace_index"] = idx
+        steps_done += 1
+
+        # update registers
+        event = trace[idx]
+        accessed_pages = {sig for sig, val in event.items() if val == "1"}
+        state["registers"]["step"] = idx
+        state["registers"]["pages"] = accessed_pages
+
+        # stop early if breakpoint
+        if idx in state["breakpoints"]:
+            print(f"breakpoint hit at step {idx}")
+            break
+
+    # summary output only
+    if steps_done > 0:
+        plural = "step" if steps_done == 1 else "steps"
+        print(f"performed {steps_done} {plural}")
+        print(f"step {state['trace_index']} (of {len(trace) - 1})")
+    else:
         print("end of trace")
-        return
-
-    # move one step forward
-    idx += 1
-    state["trace_index"] = idx
-
-    # update "registers"
-    event = trace[idx]  # dictionary {signal : value}
-    accessed_pages = {sig for sig, val in event.items() if val == "1"}
-
-    state["registers"]["step"] = idx
-    state["registers"]["pages"] = accessed_pages
-
-    # print output
-    print(f"step {idx} (of {len(trace) - 1})")
-
-    #breakpoint?
-    if idx in state["breakpoints"]:
-        print(f" breakpoint hit at step {idx} ")
-
 
 def page_step_command(state):
     #TODO implment
@@ -112,7 +119,22 @@ def interpret_command(command, state):
         page_step_command(state)
 
     if cmd == "step":
-        do_single_step(state)
+        count = 1
+        if len(parts) == 2:
+            try:
+                count = int(parts[1])
+            except ValueError:
+                print("step: argument must be an integer")
+                return
+        for _ in range(count):
+            prev = state["trace_index"]
+            do_single_step(state)
+            if state["trace_index"] == prev:
+                break  # end of trace
+            if state["trace_index"] in state["breakpoints"]:
+                break
+            
+        return
 
     if cmd == "break" and len(parts) == 2:
         break_command(parts[1], state)
