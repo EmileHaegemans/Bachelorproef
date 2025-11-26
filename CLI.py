@@ -1,6 +1,4 @@
 
-
-
 def print_help():
     print("""
 Available commands:
