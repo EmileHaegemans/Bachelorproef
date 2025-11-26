@@ -52,18 +52,31 @@ def page_step_command(state):
 
 
 def break_command(step, state):
-    #TODO implment
-    pass
+    try:
+        i = int(step)
+        state["breakpoints"].add(i)
+        print(f"breakpoint set at step {i}")
+    except ValueError:
+        print("break: step must be an integer")
 
 
 def unbreak_command(step, state):
-   #TODO implment
-   pass
+    try:
+        i = int(step)
+        if i in state["breakpoints"]:
+            state["breakpoints"].remove(i)
+            print(f"removed breakpoint {i}")
+        else:
+            print("no such breakpoint")
+    except ValueError:
+        print("unbreak: step must be an integer")
 
 
 def show_breakpoints(state):
-    #TODO implement
-    pass
+    if not state["breakpoints"]:
+        print("no breakpoints")
+    else:
+        print("breakpoints:", ", ".join(str(x) for x in sorted(state["breakpoints"])))
 
 def registers_command(state):
     regs = state.get("registers", {})
