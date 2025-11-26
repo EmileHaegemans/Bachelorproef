@@ -40,8 +40,12 @@ def show_breakpoints(state):
     pass
 
 def registers_command(state):
-    #TODO implement
-    pass
+    regs = state.get("registers", {})
+    step = regs.get("step")
+    pages = regs.get("pages", set())
+
+    print("step:", step)
+    print("accessed_pages:", sorted(list(pages)))
 
 
 def interpret_command(command, state):
@@ -106,6 +110,25 @@ def load_vcd_trace(path):
     for t in sorted(time_map.keys()):
         events.append(time_map[t])
 
+    
+    """
+    # ============================
+    # DEBUG: toon eerste 20 signalen
+    # ============================
+    print("\n--- VCD SIGNALS FOUND ---")
+    count = 0
+    for sig_id, signal in vcd.data.items():
+        # probeer naam/commentaar te vinden
+        ref = getattr(signal, "reference", None)
+        if ref is None and hasattr(signal, "references"):
+            ref = signal.references
+        print(f"  id {sig_id!r}  ->  {ref}")
+        count += 1
+        if count >= 500:
+            break
+    print("--- END SIGNAL LIST ---\n")
+    """
+
     return events
 
 
@@ -116,11 +139,14 @@ def main():
     print("Type 'help' for commands.\n")
 
     state = {
-        "breakpoints": set(),
-        "registers": {},
-        "trace": [],          # hier bewaren we de VCD-events
+        "trace": [],          # uit je VCD
         "trace_index": -1,
-    }
+        "breakpoints": set(),
+        "registers": {
+            "step": None,
+            "pages": set(),   # set van page nummers
+            }
+        }
 
     while True:
         command = input("cli> ")
