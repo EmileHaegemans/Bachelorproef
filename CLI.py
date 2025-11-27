@@ -14,6 +14,8 @@ Available commands:
   registers          # show current 'registers'
 """)
 
+
+
 def do_single_step(state, count=1):
     trace = state["trace"]
 
@@ -26,10 +28,11 @@ def do_single_step(state, count=1):
     for _ in range(count):
         idx = state["trace_index"]
 
+        # check end of trace
         if idx + 1 >= len(trace):
-            break  # end of trace
+            break 
 
-        # advance
+        # advance trace index
         idx += 1
         state["trace_index"] = idx
         steps_done += 1
@@ -45,7 +48,7 @@ def do_single_step(state, count=1):
             print(f"breakpoint hit at step {idx}")
             break
 
-    # ---- summary printed ONLY ONCE ----
+    # print summary
     if steps_done > 0:
         plural = "step" if steps_done == 1 else "steps"
         print(f"performed {steps_done} {plural}")
@@ -156,20 +159,20 @@ def interpret_command(command, state):
 
 
 def load_vcd_trace(path):
-    vcd = VCDVCD(path)   # store_tvs=True is default
+    vcd = VCDVCD(path)  
 
-    # time -> {signal_name: value}
+
     time_map = {}
 
     for sig_name, signal in vcd.data.items():
-        # signal.tv is een lijst van (time, value)
+        
         for t, val in signal.tv:
             t = int(t)
             if t not in time_map:
                 time_map[t] = {}
             time_map[t][sig_name] = val
 
-    # Maak een geordende lijst van "events" per tijd
+    
     events = []
     for t in sorted(time_map.keys()):
         events.append(time_map[t])
@@ -185,12 +188,12 @@ def main():
     print("Type 'help' for commands.\n")
 
     state = {
-        "trace": [],          # uit je VCD
+        "trace": [],         
         "trace_index": -1,
         "breakpoints": set(),
         "registers": {
             "step": None,
-            "pages": set(),   # set van page nummers
+            "pages": set(),  
             }
         }
 
