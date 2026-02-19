@@ -4,10 +4,7 @@ from typing import Dict, List, Set, Tuple
 from vcdvcd import VCDVCD
 
 
-# In jouw trace heten pages "_0", "_1", ...  (zoals in GTKWave screenshot / vcd)
-# Zet PAGE_PREFIX = "" als je ALLE signalen wil behandelen als "pages".
 PAGE_PREFIX = "_"
-
 
 def is_page_signal(sig: str) -> bool:
     return sig.startswith(PAGE_PREFIX) if PAGE_PREFIX else True
@@ -22,9 +19,9 @@ Available commands:
   load-trace <path>
   step [n]            # ga n stappen vooruit (default 1); update actieve pages + toon diff
   page-step           # spring naar volgende moment dat pages veranderen (aan/uit)
-  break <i>           # breakpoint op step index
-  unbreak <i>         # verwijder breakpoint
-  breakpoints         # lijst breakpoints
+  break-page <name>   # breakpoint als page aan gaat
+  unbreak-page <name> # verwijder page breakpoint
+  breakpoints         # lijst alle breakpoints
   registers           # toon huidige registers (step + actieve pages)
 """
     )
@@ -170,10 +167,11 @@ def do_single_step(state: dict, count: int = 1) -> None:
         state["registers"]["pages"] = set(state["active_pages"])
         state["last_diff"] = (added, removed)
 
-        # stop op breakpoint
-        if idx in state["breakpoints"]:
-            print(f"breakpoint hit at step {idx}")
-            break
+        # stop op page breakpoint: check of een newly added page in breakpoints zit
+        for page in added:
+            if page in state["page_breakpoints"]:
+                print(f"breakpoint hit: page {page} activated at step {idx}")
+                return
 
     if steps_done == 0:
         print("end of trace")
@@ -216,32 +214,27 @@ def page_step_command(state: dict) -> None:
             return
 
 
-def break_command(step: str, state: dict) -> None:
-    try:
-        i = int(step)
-        state["breakpoints"].add(i)
-        print(f"breakpoint set at step {i}")
-    except ValueError:
-        print("break: step must be an integer")
+def break_page_command(page: str, state: dict) -> None:
+    """Set breakpoint for when a page activates."""
+    state["page_breakpoints"].add(page)
+    print(f"breakpoint set for page {page}")
 
 
-def unbreak_command(step: str, state: dict) -> None:
-    try:
-        i = int(step)
-        if i in state["breakpoints"]:
-            state["breakpoints"].remove(i)
-            print(f"removed breakpoint {i}")
-        else:
-            print("no such breakpoint")
-    except ValueError:
-        print("unbreak: step must be an integer")
+def unbreak_page_command(page: str, state: dict) -> None:
+    """Remove breakpoint for a page."""
+    if page in state["page_breakpoints"]:
+        state["page_breakpoints"].remove(page)
+        print(f"removed breakpoint for page {page}")
+    else:
+        print(f"no breakpoint for page {page}")
 
 
 def show_breakpoints(state: dict) -> None:
-    if not state["breakpoints"]:
-        print("no breakpoints")
+    pages = state.get("page_breakpoints", set())
+    if not pages:
+        print("no page breakpoints")
     else:
-        print("breakpoints:", ", ".join(str(x) for x in sorted(state["breakpoints"])))
+        print("page breakpoints:", ", ".join(sorted(pages)))
 
 
 def registers_command(state: dict) -> None:
@@ -306,18 +299,18 @@ def interpret_command(command: str, state: dict) -> None:
         do_single_step(state, count)
         return
 
-    if cmd == "break":
+    if cmd == "break-page":
         if len(parts) != 2:
-            print("usage: break <step_index>")
+            print("usage: break-page <page_name>")
             return
-        break_command(parts[1], state)
+        break_page_command(parts[1], state)
         return
 
-    if cmd == "unbreak":
+    if cmd == "unbreak-page":
         if len(parts) != 2:
-            print("usage: unbreak <step_index>")
+            print("usage: unbreak-page <page_name>")
             return
-        unbreak_command(parts[1], state)
+        unbreak_page_command(parts[1], state)
         return
 
     if cmd == "breakpoints":
@@ -339,7 +332,7 @@ def main() -> None:
         "trace": [],
         "times": [],
         "trace_index": -1,
-        "breakpoints": set(),
+        "page_breakpoints": set(),
         # running state:
         "current_values": {},  # sig -> last value
         "active_pages": set(),  # pages that are '1' NOW
