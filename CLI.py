@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List, Set, Tuple
+
 from vcdvcd import VCDVCD
 
 
@@ -133,12 +134,13 @@ def _apply_changes(
     return added, removed
 
 
-def do_single_step(state: dict, count: int = 1) -> None:
+def do_single_step(state: dict, count: int = 1, quiet: bool = False) -> None:
     trace: List[Dict[str, str]] = state["trace"]
     times: List[int] = state["times"]
 
     if not trace:
-        print("no trace loaded")
+        if not quiet:
+            print("no trace loaded")
         return
 
     steps_done = 0
@@ -174,7 +176,11 @@ def do_single_step(state: dict, count: int = 1) -> None:
                 return
 
     if steps_done == 0:
-        print("end of trace")
+        if not quiet:
+            print("end of trace")
+        return
+    
+    if quiet:
         return
 
     plural = "step" if steps_done == 1 else "steps"
@@ -192,7 +198,6 @@ def do_single_step(state: dict, count: int = 1) -> None:
             shown = sorted(removed)
             print("-", " ".join(shown[:50]), ("..." if len(shown) > 50 else ""))
 
-
 def page_step_command(state: dict) -> None:
     """
     Spring naar het volgende moment waarop pages veranderen.
@@ -203,14 +208,32 @@ def page_step_command(state: dict) -> None:
 
     while True:
         before_idx = state["trace_index"]
-        do_single_step(state, 1)
+        do_single_step(state, 1, quiet=True)
 
-        # end of trace?
+        # end of trace? (geen vooruitgang)
         if state["trace_index"] == before_idx:
+            print("end of trace")
             return
 
         added, removed = state.get("last_diff", (set(), set()))
         if added or removed:
+            trace = state["trace"]
+            t_now = state["registers"].get("time")
+            active_n = len(state["active_pages"])
+
+            print("performed 1 page-step")
+            print(
+                f"step {state['trace_index']} (of {len(trace) - 1}) | "
+                f"t={t_now} | active_pages={active_n}"
+            )
+
+            if added:
+                shown = sorted(added)
+                print("+", " ".join(shown[:50]), ("..." if len(shown) > 50 else ""))
+            if removed:
+                shown = sorted(removed)
+                print("-", " ".join(shown[:50]), ("..." if len(shown) > 50 else ""))
+
             return
 
 
