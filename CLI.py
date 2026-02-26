@@ -29,12 +29,6 @@ Available commands:
 
 
 def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int]]:
-    """
-    Parse VCD inclusief init-blok (value changes vóór de eerste #timestamp).
-    Returns:
-      - events: list per timestamp met alleen de changes {sig: val}
-      - times:  list van timestamps (zelfde index als events)
-    """
     id2name: Dict[str, str] = {}
     time_map: Dict[int, Dict[str, str]] = {}
 
@@ -48,10 +42,9 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int]]:
             if not line:
                 continue
 
-            # Header: definities lezen
+            # Header
             if in_header:
                 if line.startswith("$var"):
-                    # $var wire 1 ! _0 $end
                     parts = line.split()
                     if len(parts) >= 5:
                         code = parts[3]
@@ -63,31 +56,28 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int]]:
                     in_header = False
                     continue
 
-                continue  # andere headerlijnen negeren
+                continue 
 
-            # Data: timestamps
+            # Data
             if line.startswith("#"):
                 current_time = int(line[1:])
                 if current_time not in time_map:
                     time_map[current_time] = {}
                 continue
 
-            # Ignore $dumpvars/$end etc.
+            # Ignore dump dingen
             if line.startswith("$"):
                 continue
 
-            # Value changes:
-            # 1-bit: 1! 0xK z" etc.
-            # vector: b1010 <code>
+            # Value changes
             if line[0] in ("0", "1", "x", "z", "X", "Z"):
                 val = line[0].lower()
                 code = line[1:].strip()
             elif line[0] in ("b", "B"):
-                # b101010 !  (of: b101010 <code>)
                 parts = line.split()
                 if len(parts) != 2:
                     continue
-                val = parts[0][1:]  # alleen bits
+                val = parts[0][1:]  
                 code = parts[1]
             else:
                 continue
@@ -279,7 +269,7 @@ def interpret_command(command: str, state: dict) -> None:
         state["times"] = times
         state["trace_index"] = -1
 
-        # reset running state
+        # reset
         state["current_values"] = {}
         state["active_pages"] = set()
         state["last_diff"] = (set(), set())
@@ -347,10 +337,9 @@ def main() -> None:
         "times": [],
         "trace_index": -1,
         "page_breakpoints": set(),
-        # running state:
-        "current_values": {},  # sig -> last value
-        "active_pages": set(),  # pages that are '1' NOW
-        "last_diff": (set(), set()),  # (added, removed)
+        "current_values": {},  
+        "active_pages": set(),  
+        "last_diff": (set(), set()),  #(add, rem)
         "registers": {"step": None, "time": None, "pages": set()},
     }
 
