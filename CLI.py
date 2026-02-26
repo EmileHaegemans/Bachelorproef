@@ -109,10 +109,6 @@ def _apply_changes(
     active_pages: Set[str],
     changes: Dict[str, str],
 ) -> Tuple[Set[str], Set[str]]:
-    """
-    Past changes toe op current_values en active_pages.
-    Geeft (added_pages, removed_pages) terug.
-    """
     added: Set[str] = set()
     removed: Set[str] = set()
 
@@ -163,13 +159,13 @@ def do_single_step(state: dict, count: int = 1, quiet: bool = False) -> None:
             changes,
         )
 
-        # "registers" = snapshot van actieve pages op dit moment
+        # registers
         state["registers"]["step"] = idx
         state["registers"]["time"] = t
         state["registers"]["pages"] = set(state["active_pages"])
         state["last_diff"] = (added, removed)
 
-        # stop op page breakpoint: check of een newly added page in breakpoints zit
+        #breakpoints check
         for page in added:
             if page in state["page_breakpoints"]:
                 print(f"breakpoint hit: page {page} activated at step {idx}")
@@ -199,9 +195,6 @@ def do_single_step(state: dict, count: int = 1, quiet: bool = False) -> None:
             print("-", " ".join(shown[:50]), ("..." if len(shown) > 50 else ""))
 
 def page_step_command(state: dict) -> None:
-    """
-    Spring naar het volgende moment waarop pages veranderen.
-    """
     if not state["trace"]:
         print("no trace loaded")
         return
@@ -238,13 +231,11 @@ def page_step_command(state: dict) -> None:
 
 
 def break_page_command(page: str, state: dict) -> None:
-    """Set breakpoint for when a page activates."""
     state["page_breakpoints"].add(page)
     print(f"breakpoint set for page {page}")
 
 
 def unbreak_page_command(page: str, state: dict) -> None:
-    """Remove breakpoint for a page."""
     if page in state["page_breakpoints"]:
         state["page_breakpoints"].remove(page)
         print(f"removed breakpoint for page {page}")
