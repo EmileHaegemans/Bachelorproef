@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List, Set, Tuple
+from collections import Counter
 
 from vcdvcd import VCDVCD
 
@@ -8,34 +9,40 @@ from vcdvcd import VCDVCD
 PAGE_PREFIX = "_"
 
 def is_page_signal(sig: str) -> bool:
-    return sig.startswith(PAGE_PREFIX) if PAGE_PREFIX else True
+    # Herkent zowel _0 als pure getallen (zoals in libjpeg trace)
+    return sig.startswith(PAGE_PREFIX) or sig.isdigit()
 
 
 def print_help() -> None:
     print(
         """
 Available commands:
-  help
-  quit
-  load-trace <path>
-  step [n]            # ga n stappen vooruit (default 1); update actieve pages + toon diff
-  page-step           # spring naar volgende moment dat pages veranderen (aan/uit)
-  break-page <name>   # breakpoint als page aan gaat
-  unbreak-page <name> # verwijder page breakpoint
-  breakpoints         # lijst alle breakpoints
-  registers           # toon huidige registers (step + actieve pages)
+    help
+    quit
+    load-trace <path>
+    step [n]            # ga n stappen vooruit (default 1)
+    page-step           # spring naar volgende moment dat pages veranderen
+    registers           # toon huidige registers (step + actieve pages)
+    frequency <page>    # toon wanneer de page is geaccessed
+    top-pages <amount>  # toon de meest geaccessed pages en hoeveel
+    breakpoints         # lijst alle breakpoints
+    break-page <name>   # breakpoint als page aan gaat
+    unbreak-page <name> # verwijder page breakpoint
 """
     )
 
 
-def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int]]:
+def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str, List[int]], List[Tuple[int, str]]]:
     id2name: Dict[str, str] = {}
     time_map: Dict[int, Dict[str, str]] = {}
 
+    page_to_timestamp: Dict[str, List[int]] = {}
+    access_history: List[Tuple[int, str]] = []
+
     in_header = True
     current_time = 0
-    time_map[current_time] = {}
 
+    print(f"Loading {path}...")
     with open(path, "r", errors="ignore") as f:
         for raw in f:
             line = raw.strip()
@@ -86,11 +93,21 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int]]:
             if name is None:
                 continue
 
+            if current_time not in time_map:
+                time_map[current_time] = {}
+
             time_map[current_time][name] = val
+
+            if is_page_signal(name) and val == "1":
+                if name not in page_to_timestamp:
+                    page_to_timestamp[name] = []
+                page_to_timestamp[name].append(current_time)
+                access_history.append((current_time, name))
 
     times_sorted = sorted(time_map.keys())
     events = [time_map[t] for t in times_sorted]
-    return events, times_sorted
+
+    return events, times_sorted, page_to_timestamp, access_history
 
 
 
@@ -251,6 +268,30 @@ def registers_command(state: dict) -> None:
     pages_sorted = sorted(pages)
     print("active_pages:", pages_sorted[:100], ("..." if len(pages_sorted) > 100 else ""))
 
+def freq_command(page: str, state: dict):
+    mapping = state.get("page_to_timestamps", {})
+
+    # prefix proof maken
+    target = page
+    if target not in mapping and ("_" + target) in mapping:
+        target = "_" + target
+
+    if target in mapping:
+        timestamps = mapping[target]
+        count = len(timestamps)
+        print(f"Amount of times activated: {count}")
+        print(f"Activated on timestamps: {timestamps}")
+    else:
+        print(f"Page not found in trace")
+
+def top_pages_command(n: int, state: dict):
+    mapping = state.get("page_to_timestamps", {})
+    counts = Counter({p: len(t) for p, t in mapping.items()})
+
+    print(f"Top {n} most activated pages:")
+    for page, count in counts.most_common(n):
+        print(f" page {page} : {count} accesses")
+
 
 def interpret_command(command: str, state: dict) -> None:
     parts = command.split()
@@ -264,10 +305,12 @@ def interpret_command(command: str, state: dict) -> None:
             print("usage: load-trace <path>")
             return
 
-        events, times = load_vcd_trace(parts[1])
+        events, times, pageToTime, hist = load_vcd_trace(parts[1])
         state["trace"] = events
         state["times"] = times
         state["trace_index"] = -1
+        state["page_to_timestamps"] = pageToTime
+        state["acces_history"] = hist
 
         # reset
         state["current_values"] = {}
@@ -278,7 +321,6 @@ def interpret_command(command: str, state: dict) -> None:
         state["registers"]["pages"] = set()
 
         print(f"Loaded trace with {len(events)} timestamps.")
-        print("Tip: 'step 1' applies first timestamp; 'page-step' jumps between page changes.")
         return
 
     if cmd == "quit":
@@ -323,6 +365,24 @@ def interpret_command(command: str, state: dict) -> None:
 
     if cmd == "registers":
         registers_command(state)
+        return
+    
+    if cmd == "frequency":
+        if len(parts) != 2:
+            print("usage: frequency <page_name")
+            return
+        freq_command(parts[1], state)
+        return
+    
+    if cmd == "top-pages":
+        if len(parts) != 2:
+            print("usage: top-pages <amount>")
+            return
+        try:
+            n = int(parts[1])
+            top_pages_command(n, state)
+        except ValueError:
+            print("amount must be a number")
         return
 
     print("no valid command (type 'help')")
