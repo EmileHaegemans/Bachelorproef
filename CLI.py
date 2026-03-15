@@ -22,7 +22,7 @@ Available commands:
     load-trace <path>
     step [n]            # go forward n steps (default 1)
     page-step           # jump to next moment pages change
-    registers           # show current registers (step + active pages)
+    active-pages        # show current active pages
     frequency <page>    # show when and how long a page was accessed
     timeline <start_t> <end_t> # show chronological order based on time (t)
     acces-trace <s_idx> <e_idx> # show chronological order based on index
@@ -270,7 +270,7 @@ def show_breakpoints(state: dict) -> None:
         print("page breakpoints:", ", ".join(sorted(pages)))
 
 
-def registers_command(state: dict) -> None:
+def active_pages_command(state: dict) -> None:
     regs = state.get("registers", {})
     step = regs.get("step")
     t = regs.get("time")
@@ -463,8 +463,8 @@ def interpret_command(command: str, state: dict) -> None:
         show_breakpoints(state)
         return
 
-    if cmd == "registers":
-        registers_command(state)
+    if cmd == "active-pages":
+        active_pages_command(state)
         return
     
     if cmd == "frequency":
