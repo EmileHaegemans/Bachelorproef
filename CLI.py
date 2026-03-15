@@ -24,8 +24,9 @@ Available commands:
     page-step           # spring naar volgende moment dat pages veranderen
     registers           # toon huidige registers (step + actieve pages)
     frequency <page>    # toon wanneer de page is geaccessed en hoe lang
-    timeline <start> <end> # toon pagina-accesses tussen twee tijdstippen
-    transitions <page>  # toon welke pagina's volgen op de opgegeven pagina (met tijdstippen)
+    timeline <start> <end> # toon volgorde op basis van tijd 
+    acces-trace <start> <end > # toon volgorde op basis van index
+    transitions <page>  # toon welke pagina's volgen op de opgegeven pagina
     top-pages <amount>  # toon de meest geaccessed pages en hoeveel
     breakpoints         # lijst alle breakpoints
     break-page <name>   # breakpoint als page aan gaat
@@ -109,7 +110,7 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str
                             page_intervals[name] = []
                         page_intervals[name].append((start_t, current_time))
 
-    # Sluit openstaande intervallen aan het einde
+    # Sluit openstaande intervallen
     for name, start_t in active_starts.items():
         if name not in page_intervals:
             page_intervals[name] = []
@@ -289,7 +290,7 @@ def freq_command(page: str, state: dict, start_filter: int = None, end_filter: i
     if target in mapping:
         intervals = mapping[target]
 
-        # Filteren op basis van start-tijd: toon de access als hij begint binnen het venster
+        # Filteren op basis van start-tijd
         filtered = []
         for start, end in intervals:
             if start_filter is not None and start < start_filter:
@@ -311,7 +312,6 @@ def freq_command(page: str, state: dict, start_filter: int = None, end_filter: i
 
 
 def top_pages_command(n: int, state: dict):
-
     mapping = state.get("page_intervals", {})
     counts = Counter({p: len(t) for p, t in mapping.items()})
 
@@ -320,18 +320,50 @@ def top_pages_command(n: int, state: dict):
         print(f" page {page:10} : {count} accesses")
 
 
+def timeline_time_command(state: dict, start_t: int, end_t: int):
+    history = state.get("access_history", [])
+    if not history:
+        print("Geen access historie beschikbaar. Laad eerst een trace.")
+        return
+
+    print(f"--- Timeline (tijd {start_t} tot {end_t}) ---")
+    found_any = False
+    for i, (t, page) in enumerate(history):
+        if t >= start_t and t <= end_t:
+            print(f"[{i:5}] t={t:8} : {page}")
+            found_any = True
+        elif t > end_t:
+            break
+
+    if not found_any:
+        print(f"Geen pagina-accesses gevonden tussen t={start_t} en t={end_t}.")
+
+
+def acces_trace_command(state: dict, start_idx: int, end_idx: int):
+    history = state.get("access_history", [])
+    if not history:
+        print("Geen access historie beschikbaar. Laad eerst een trace.")
+        return
+
+    start_idx = max(0, start_idx)
+    end_idx = min(len(history), end_idx)
+
+    print(f"--- Access Trace (index {start_idx} tot {end_idx}) ---")
+    for i in range(start_idx, end_idx):
+        t, page = history[i]
+        print(f"[{i}] t={t} : {page}")
+
+
 def transitions_command(page: str, state: dict):
     history = state.get("access_history", [])
     if not history:
         print("Geen access historie beschikbaar. Laad eerst een trace.")
         return
 
-    # Prefix proof maken
     target = page
     if target not in state.get("page_intervals", {}) and ("_" + target) in state.get("page_intervals", {}):
         target = "_" + target
 
-    # We slaan op: { volgende_pagina: [tijdstippen_van_target] }
     transitions = {} # Dict[str, List[int]]
     
     for i in range(len(history) - 1):
@@ -343,7 +375,7 @@ def transitions_command(page: str, state: dict):
             transitions[p_next].append(t_current)
 
     if not transitions:
-        print(f"Geen overgangen gevonden voor pagina {target} (of hij verscheen alleen aan het einde).")
+        print(f"Geen overgangen gevonden voor pagina {target}.")
         return
 
     total_occurrences = sum(len(ts) for ts in transitions.values())
@@ -351,7 +383,6 @@ def transitions_command(page: str, state: dict):
     print(f"--- Analyse van Overgangen na Pagina {target} ---")
     print(f"Totaal aantal keer geactiveerd: {total_occurrences}\n")
 
-    # Sorteer op basis van hoe vaak een overgang voorkomt
     sorted_transitions = sorted(transitions.items(), key=lambda x: len(x[1]), reverse=True)
 
     for next_p, timestamps in sorted_transitions:
@@ -362,29 +393,7 @@ def transitions_command(page: str, state: dict):
         print("") 
 
 
-def timeline_command(state: dict, start_t: int, end_t: int):
-    history = state.get("access_history", [])
-    if not history:
-        print("Geen access historie beschikbaar. Laad eerst een trace.")
-        return
-
-    print(f"--- Timeline (tijd {start_t} tot {end_t}) ---")
-
-    found_any = False
-    for t, page in history:
-        if t >= start_t and t <= end_t:
-            print(f"t={t:8} : {page}")
-            found_any = True
-        elif t > end_t:
-            # Omdat history chronologisch is, kunnen we stoppen als we end_t passeren
-            break
-
-    if not found_any:
-        print(f"Geen pagina-accesses gevonden tussen t={start_t} en t={end_t}.")
-
-
 def interpret_command(command: str, state: dict) -> None:
- Applied fuzzy match at line 280-300.
     parts = command.split()
     if not parts:
         return
@@ -483,11 +492,23 @@ def interpret_command(command: str, state: dict) -> None:
             print("usage: timeline <start_time> <end_time>")
             return
         try:
-            start_t = int(parts[1])
-            end_t = int(parts[2])
-            timeline_command(state, start_t, end_t)
+            t1 = int(parts[1])
+            t2 = int(parts[2])
+            timeline_time_command(state, t1, t2)
         except ValueError:
-            print("Error: tijdstippen moeten gehele getallen (integers) zijn.")
+            print("Error: tijdstippen moeten gehele getallen zijn.")
+        return
+
+    if cmd == "acces-trace":
+        if len(parts) != 3:
+            print("usage: acces-trace <start_index> <end_index>")
+            return
+        try:
+            s_idx = int(parts[1])
+            e_idx = int(parts[2])
+            acces_trace_command(state, s_idx, e_idx)
+        except ValueError:
+            print("Error: indices moeten gehele getallen zijn.")
         return
 
     if cmd == "transitions":
