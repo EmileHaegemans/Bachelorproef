@@ -23,7 +23,7 @@ Available commands:
     step [n]            # ga n stappen vooruit (default 1)
     page-step           # spring naar volgende moment dat pages veranderen
     registers           # toon huidige registers (step + actieve pages)
-    frequency <page>    # toon wanneer de page is geaccessed
+    frequency <page>    # toon wanneer de page is geaccessed en hoe lang, optioneel om begin en start time mee te geven. 
     top-pages <amount>  # toon de meest geaccessed pages en hoeveel
     breakpoints         # lijst alle breakpoints
     break-page <name>   # breakpoint als page aan gaat
@@ -32,11 +32,12 @@ Available commands:
     )
 
 
-def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str, List[int]], List[Tuple[int, str]]]:
+def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str, List[Tuple[int, int]]], List[Tuple[int, str]]]:
     id2name: Dict[str, str] = {}
     time_map: Dict[int, Dict[str, str]] = {}
 
-    page_to_timestamp: Dict[str, List[int]] = {}
+    page_intervals: Dict[str, List[Tuple[int, int]]] = {}
+    active_starts: Dict[str, int] = {}
     access_history: List[Tuple[int, str]] = []
 
     in_header = True
@@ -72,10 +73,6 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str
                     time_map[current_time] = {}
                 continue
 
-            # Ignore dump dingen
-            if line.startswith("$"):
-                continue
-
             # Value changes
             if line[0] in ("0", "1", "x", "z", "X", "Z"):
                 val = line[0].lower()
@@ -98,16 +95,28 @@ def load_vcd_trace(path: str) -> Tuple[List[Dict[str, str]], List[int], Dict[str
 
             time_map[current_time][name] = val
 
-            if is_page_signal(name) and val == "1":
-                if name not in page_to_timestamp:
-                    page_to_timestamp[name] = []
-                page_to_timestamp[name].append(current_time)
-                access_history.append((current_time, name))
+            if is_page_signal(name):
+                if val == "1":
+                    if name not in active_starts:
+                        active_starts[name] = current_time
+                        access_history.append((current_time, name))
+                elif val in ("0", "x", "z"):
+                    if name in active_starts:
+                        start_t = active_starts.pop(name)
+                        if name not in page_intervals:
+                            page_intervals[name] = []
+                        page_intervals[name].append((start_t, current_time))
+
+    # Sluit openstaande intervallen aan het einde
+    for name, start_t in active_starts.items():
+        if name not in page_intervals:
+            page_intervals[name] = []
+        page_intervals[name].append((start_t, current_time))
 
     times_sorted = sorted(time_map.keys())
     events = [time_map[t] for t in times_sorted]
 
-    return events, times_sorted, page_to_timestamp, access_history
+    return events, times_sorted, page_intervals, access_history
 
 
 
@@ -268,29 +277,45 @@ def registers_command(state: dict) -> None:
     pages_sorted = sorted(pages)
     print("active_pages:", pages_sorted[:100], ("..." if len(pages_sorted) > 100 else ""))
 
-def freq_command(page: str, state: dict):
-    mapping = state.get("page_to_timestamps", {})
+def freq_command(page: str, state: dict, start_filter: int = None, end_filter: int = None):
+    mapping = state.get("page_intervals", {})
 
-    # prefix proof maken
     target = page
     if target not in mapping and ("_" + target) in mapping:
         target = "_" + target
 
     if target in mapping:
-        timestamps = mapping[target]
-        count = len(timestamps)
-        print(f"Amount of times activated: {count}")
-        print(f"Activated on timestamps: {timestamps}")
+        intervals = mapping[target]
+
+        # Filteren op basis van start-tijd: toon de access als hij begint binnen het venster
+        filtered = []
+        for start, end in intervals:
+            if start_filter is not None and start < start_filter:
+                continue
+            if end_filter is not None and start > end_filter:
+                continue
+            filtered.append((start, end))
+
+        print(f"--- Access intervals for Page {target} ---")
+        if start_filter is not None or end_filter is not None:
+            print(f"Filter: accesses starting between {start_filter if start_filter is not None else 0} and {end_filter if end_filter is not None else 'end'}")
+
+        print(f"Activations found: {len(filtered)}")
+
+        for start, end in filtered:
+            print(f"  {start:8} - {end:8} (duration: {end-start})")
     else:
-        print(f"Page not found in trace")
+        print(f"Page {target} not found in trace or never activated (1).")
+
 
 def top_pages_command(n: int, state: dict):
-    mapping = state.get("page_to_timestamps", {})
+
+    mapping = state.get("page_intervals", {})
     counts = Counter({p: len(t) for p, t in mapping.items()})
 
     print(f"Top {n} most activated pages:")
     for page, count in counts.most_common(n):
-        print(f" page {page} : {count} accesses")
+        print(f" page {page:10} : {count} accesses")
 
 
 def interpret_command(command: str, state: dict) -> None:
@@ -305,12 +330,12 @@ def interpret_command(command: str, state: dict) -> None:
             print("usage: load-trace <path>")
             return
 
-        events, times, pageToTime, hist = load_vcd_trace(parts[1])
+        events, times, pageInt, hist = load_vcd_trace(parts[1])
         state["trace"] = events
         state["times"] = times
         state["trace_index"] = -1
-        state["page_to_timestamps"] = pageToTime
-        state["acces_history"] = hist
+        state["page_intervals"] = pageInt
+        state["access_history"] = hist
 
         # reset
         state["current_values"] = {}
@@ -368,10 +393,23 @@ def interpret_command(command: str, state: dict) -> None:
         return
     
     if cmd == "frequency":
-        if len(parts) != 2:
-            print("usage: frequency <page_name")
+        if len(parts) < 2:
+            print("usage: frequency <page_name> [start_time] [end_time]")
             return
-        freq_command(parts[1], state)
+        
+        page_name = parts[1]
+        start_t = None
+        end_t = None
+        
+        try:
+            if len(parts) > 2:
+                start_t = int(parts[2])
+            if len(parts) > 3:
+                end_t = int(parts[3])
+            
+            freq_command(page_name, state, start_t, end_t)
+        except ValueError:
+            print("Error: start_time and end_time must be integers.")
         return
     
     if cmd == "top-pages":
