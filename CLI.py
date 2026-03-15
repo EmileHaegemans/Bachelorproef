@@ -23,7 +23,9 @@ Available commands:
     step [n]            # ga n stappen vooruit (default 1)
     page-step           # spring naar volgende moment dat pages veranderen
     registers           # toon huidige registers (step + actieve pages)
-    frequency <page>    # toon wanneer de page is geaccessed en hoe lang, optioneel om begin en start time mee te geven. 
+    frequency <page>    # toon wanneer de page is geaccessed en hoe lang
+    timeline <start> <end> # toon pagina-accesses tussen twee tijdstippen
+    transitions <page>  # toon welke pagina's volgen op de opgegeven pagina (met tijdstippen)
     top-pages <amount>  # toon de meest geaccessed pages en hoeveel
     breakpoints         # lijst alle breakpoints
     break-page <name>   # breakpoint als page aan gaat
@@ -318,7 +320,71 @@ def top_pages_command(n: int, state: dict):
         print(f" page {page:10} : {count} accesses")
 
 
+def transitions_command(page: str, state: dict):
+    history = state.get("access_history", [])
+    if not history:
+        print("Geen access historie beschikbaar. Laad eerst een trace.")
+        return
+
+    # Prefix proof maken
+    target = page
+    if target not in state.get("page_intervals", {}) and ("_" + target) in state.get("page_intervals", {}):
+        target = "_" + target
+
+    # We slaan op: { volgende_pagina: [tijdstippen_van_target] }
+    transitions = {} # Dict[str, List[int]]
+    
+    for i in range(len(history) - 1):
+        t_current, p_current = history[i]
+        if p_current == target:
+            p_next = history[i+1][1]
+            if p_next not in transitions:
+                transitions[p_next] = []
+            transitions[p_next].append(t_current)
+
+    if not transitions:
+        print(f"Geen overgangen gevonden voor pagina {target} (of hij verscheen alleen aan het einde).")
+        return
+
+    total_occurrences = sum(len(ts) for ts in transitions.values())
+
+    print(f"--- Analyse van Overgangen na Pagina {target} ---")
+    print(f"Totaal aantal keer geactiveerd: {total_occurrences}\n")
+
+    # Sorteer op basis van hoe vaak een overgang voorkomt
+    sorted_transitions = sorted(transitions.items(), key=lambda x: len(x[1]), reverse=True)
+
+    for next_p, timestamps in sorted_transitions:
+        count = len(timestamps)
+        percentage = (count / total_occurrences) * 100
+        print(f"  -> Gevolgd door {next_p:10} : {count:5} keer ({percentage:5.1f}%)")
+        print(f"     Op tijdstippen: {timestamps[:20]}", "..." if count > 20 else "")
+        print("") 
+
+
+def timeline_command(state: dict, start_t: int, end_t: int):
+    history = state.get("access_history", [])
+    if not history:
+        print("Geen access historie beschikbaar. Laad eerst een trace.")
+        return
+
+    print(f"--- Timeline (tijd {start_t} tot {end_t}) ---")
+
+    found_any = False
+    for t, page in history:
+        if t >= start_t and t <= end_t:
+            print(f"t={t:8} : {page}")
+            found_any = True
+        elif t > end_t:
+            # Omdat history chronologisch is, kunnen we stoppen als we end_t passeren
+            break
+
+    if not found_any:
+        print(f"Geen pagina-accesses gevonden tussen t={start_t} en t={end_t}.")
+
+
 def interpret_command(command: str, state: dict) -> None:
+ Applied fuzzy match at line 280-300.
     parts = command.split()
     if not parts:
         return
@@ -410,6 +476,25 @@ def interpret_command(command: str, state: dict) -> None:
             freq_command(page_name, state, start_t, end_t)
         except ValueError:
             print("Error: start_time and end_time must be integers.")
+        return
+
+    if cmd == "timeline":
+        if len(parts) != 3:
+            print("usage: timeline <start_time> <end_time>")
+            return
+        try:
+            start_t = int(parts[1])
+            end_t = int(parts[2])
+            timeline_command(state, start_t, end_t)
+        except ValueError:
+            print("Error: tijdstippen moeten gehele getallen (integers) zijn.")
+        return
+
+    if cmd == "transitions":
+        if len(parts) != 2:
+            print("usage: transitions <page_name>")
+            return
+        transitions_command(parts[1], state)
         return
     
     if cmd == "top-pages":
