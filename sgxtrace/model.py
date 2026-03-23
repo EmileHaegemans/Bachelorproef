@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
 
-@dataclass(frozen=True)
+@dataclass
 class TraceData:
     events: List[Dict[str, str]]
     times: List[int]

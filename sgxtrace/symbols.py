@@ -31,11 +31,11 @@ def get_symbol_map(elf_path: str) -> Dict[str, str]:
                 
                 for symbol in symbols:
                     st_type = symbol["st_info"]["type"]
-                    if st_type in ("STT_FUNC", "STT_NOTYPE") and symbol["st_value"] != 0:
+                    if st_type in ("STT_FUNC", "STT_NOTYPE", "STT_OBJECT") and symbol["st_value"] != 0:
                         
                         addr = symbol["st_value"]
-                        page_idx_hex = addr // 4096
-                        page_name = f"_{hex(page_idx_hex)[2:]}"
+                        page_idx = addr // 4096
+                        page_name = f"_{page_idx}"
                         
                         entry = f"{symbol.name}@0x{addr:x}"
                         
@@ -72,3 +72,16 @@ def find_pages_for_symbol(trace: TraceData, pattern: str) -> List[Tuple[str, str
             if pattern in s.lower():
                 results.append((page, s))
     return results
+
+
+def find_page_by_exact_symbol(trace: TraceData, symbol_name: str) -> str | None:
+    """
+    Returns the page name (e.g. '_17') that contains the exact symbol name.
+    Useful when multiple symbols share a page or have similar names.
+    """
+    pattern = f"{symbol_name}@"
+    for page, symbols_str in trace.symbol_map.items():
+        sym_list = [s.strip() for s in symbols_str.split(",")]
+        if any(s.startswith(pattern) for s in sym_list):
+            return page
+    return None
