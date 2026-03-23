@@ -10,6 +10,7 @@ class TraceData:
     times: List[int]
     page_intervals: Dict[str, List[Tuple[int, int]]]
     access_history: List[Tuple[int, str]]
+    symbol_map: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

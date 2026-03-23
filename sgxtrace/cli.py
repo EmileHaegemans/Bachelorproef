@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from typing import Optional
 
 from .analysis import (
@@ -11,6 +12,7 @@ from .analysis import (
 )
 from .navigator import TraceNavigator
 from .parser import load_vcd_trace, normalize_page_name
+from .symbols import find_pages_for_symbol, get_symbol_map, get_symbols_for_page
 
 
 def print_help() -> None:
@@ -20,6 +22,10 @@ Available commands:
     help
     quit
     load-trace <path>
+    load-binary <path>            # load ELF symbols for page mapping
+    show-map                      # print the page-to-symbol mapping
+    map-page <page>               # show all functions on a specific page
+    map-symbol <name>             # find which page a function belongs to
     step [n]                      # go forward n steps (default 1)
     page-step                     # jump to next moment pages change
     active-pages                  # show current active pages
@@ -37,10 +43,11 @@ Available commands:
 
 def _print_step_result(
     result,
-    total_events: int,
-    active_pages_count: int,
+    nav: TraceNavigator,
     page_step: bool = False,
 ) -> None:
+    total_events = len(nav.trace.events)
+    active_pages_count = len(nav.active_pages)
 
     if result.steps_done == 0:
         if result.end_of_trace:
@@ -77,8 +84,9 @@ def _print_active_pages(nav: TraceNavigator) -> None:
 
 
 def _print_frequency(page: str, nav: TraceNavigator, start_t: int | None, end_t: int | None) -> None:
-    intervals = get_page_intervals(nav.trace, page, start_t, end_t)
-    print(f"--- Access intervals for Page {page} ---")
+    target = normalize_page_name(page, nav.trace.page_intervals)
+    intervals = get_page_intervals(nav.trace, target, start_t, end_t)
+    print(f"--- Access intervals for Page {target} ---")
 
     if start_t is not None or end_t is not None:
         print(
@@ -119,14 +127,16 @@ def _print_access_trace(nav: TraceNavigator, start_idx: int, end_idx: int) -> No
 
 
 def _print_transitions(page: str, nav: TraceNavigator) -> None:
-    transitions = get_transitions(nav.trace, page)
+    target = normalize_page_name(page, nav.trace.page_intervals)
+    transitions = get_transitions(nav.trace, target)
+    
     if not transitions:
-        print(f"No transitions found for page {page}.")
+        print(f"No transitions found for page {target}.")
         return
 
     total_occurrences = sum(len(ts) for ts in transitions.values())
 
-    print(f"--- Analysis of Transitions after Page {page} ---")
+    print(f"--- Analysis of Transitions after Page {target} ---")
     print(f"Total times activated: {total_occurrences}\n")
 
     sorted_transitions = sorted(transitions.items(), key=lambda x: len(x[1]), reverse=True)
@@ -143,6 +153,26 @@ def _print_top_pages(amount: int, nav: TraceNavigator) -> None:
     print(f"Top {amount} most activated pages:")
     for page, count in top:
         print(f" page {page:10} : {count} accesses")
+
+
+def _print_symbol_map(nav: TraceNavigator) -> None:
+    if not nav.trace.symbol_map:
+        print("No symbol map loaded. Use 'load-binary <path>' first.")
+        return
+
+    print("--- Page to Symbol Map ---")
+    # Sort numerically by the page index (e.g., _17 -> 17)
+    def page_key(p: str) -> int:
+        try:
+            return int(p.lstrip("_"), 16)
+        except ValueError:
+            return 0
+
+    sorted_pages = sorted(nav.trace.symbol_map.keys(), key=page_key)
+    for p in sorted_pages:
+        symbol = nav.trace.symbol_map[p]
+        print(f" {p:10} : {symbol}")
+    print("-" * 26)
 
 
 def interpret_command(command: str, context: dict) -> None:
@@ -183,6 +213,58 @@ def interpret_command(command: str, context: dict) -> None:
         print("no trace loaded")
         return
 
+    if cmd == "load-binary":
+        if len(parts) < 2:
+            print("usage: load-binary <path>")
+            return
+        
+        path = parts[1]
+        print(f"Loading symbols from {path}...")
+        sym_map = get_symbol_map(path)
+        if sym_map:
+            nav.trace = dataclasses.replace(nav.trace, symbol_map=sym_map)
+            print(f"Loaded {len(sym_map)} page mappings.")
+        else:
+            print("No symbols loaded.")
+        return
+
+    if cmd == "show-map":
+        _print_symbol_map(nav)
+        return
+
+    if cmd == "map-page":
+        if len(parts) < 2:
+            print("usage: map-page <page_name>")
+            return
+        
+        page = parts[1]
+        if not page.startswith("_"):
+            page = "_" + page
+            
+        symbols = get_symbols_for_page(nav.trace, page)
+        if symbols:
+            print(f"Functions on page {page}:")
+            for s in symbols:
+                print(f"  - {s}")
+        else:
+            print(f"No functions mapped to page {page}.")
+        return
+
+    if cmd == "map-symbol":
+        if len(parts) < 2:
+            print("usage: map-symbol <keyword>")
+            return
+        
+        keyword = " ".join(parts[1:])
+        results = find_pages_for_symbol(nav.trace, keyword)
+        if results:
+            print(f"Found {len(results)} matches for '{keyword}':")
+            for page, symbol in results:
+                print(f"  {page:10} : {symbol}")
+        else:
+            print(f"No symbols found matching '{keyword}'.")
+        return
+
     if cmd == "step":
         count = 1
         if len(parts) == 2:
@@ -193,12 +275,12 @@ def interpret_command(command: str, context: dict) -> None:
                 return
 
         result = nav.step(count)
-        _print_step_result(result, len(nav.trace.events), len(nav.active_pages), page_step=False)
+        _print_step_result(result, nav, page_step=False)
         return
 
     if cmd == "page-step":
         result = nav.page_step()
-        _print_step_result(result, len(nav.trace.events), len(nav.active_pages), page_step=True)
+        _print_step_result(result, nav, page_step=True)
         return
 
     if cmd == "active-pages":
