@@ -140,12 +140,24 @@ class TraceNavigator:
         )
 
     def page_step(self) -> StepResult:
-        while True:
-            before_idx = self.state.trace_index
-            result = self.step(1)
+        # Use binary search to find the next interesting time point in access_history
+        current_time = self.current_time or -1
+        history_times = [item[0] for item in self.trace.access_history]
 
-            if self.state.trace_index == before_idx:
-                return result
+        # Find index of first event with time > current_time
+        import bisect
+        next_event_idx = bisect.bisect_right(history_times, current_time)
 
-            if result.added or result.removed or result.breakpoint_hit is not None:
-                return result
+        if next_event_idx >= len(self.trace.access_history):
+            # No more page events, step to the end of the trace
+            return self.step(len(self.trace.events))
+
+        next_time = self.trace.access_history[next_event_idx][0]
+
+        # Find the index in trace.times for this timestamp
+        target_idx = bisect.bisect_left(self.trace.times, next_time)
+
+        # Calculate how many steps to skip
+        steps_to_jump = target_idx - self.state.trace_index
+
+        return self.step(steps_to_jump)

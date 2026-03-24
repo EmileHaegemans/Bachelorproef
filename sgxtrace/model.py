@@ -11,6 +11,10 @@ class TraceData:
     page_intervals: Dict[str, List[Tuple[int, int]]]
     access_history: List[Tuple[int, str]]
     symbol_map: Dict[str, str] = field(default_factory=dict)
+    
+    # Fast indexing for exploitation
+    signal_to_changes: Dict[str, List[Tuple[int, str]]] = field(default_factory=dict)
+    transition_map: Dict[str, Dict[str, List[int]]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

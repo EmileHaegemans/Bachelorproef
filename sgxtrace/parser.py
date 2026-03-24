@@ -53,6 +53,7 @@ def load_vcd_trace(path: str) -> TraceData:
     page_intervals: Dict[str, List[Tuple[int, int]]] = {}
     active_starts: Dict[str, int] = {}
     access_history: List[Tuple[int, str]] = []
+    signal_to_changes: Dict[str, List[Tuple[int, str]]] = {}
 
     in_header = True
     current_time = 0
@@ -109,6 +110,9 @@ def load_vcd_trace(path: str) -> TraceData:
 
             time_map[current_time][name] = val
 
+            # Index all signal changes
+            signal_to_changes.setdefault(name, []).append((current_time, val))
+
             if is_page_signal(name):
                 if val == "1":
                     if name not in active_starts:
@@ -125,9 +129,24 @@ def load_vcd_trace(path: str) -> TraceData:
     times_sorted = sorted(time_map.keys())
     events = [time_map[t] for t in times_sorted]
 
+    # Pre-calculate transition map for fast exploitation
+    transition_map: Dict[str, Dict[str, List[int]]] = {}
+    for i in range(len(access_history) - 1):
+        t_current, p_current = access_history[i]
+        p_next = access_history[i + 1][1]
+
+        if p_current not in transition_map:
+            transition_map[p_current] = {}
+        if p_next not in transition_map[p_current]:
+            transition_map[p_current][p_next] = []
+
+        transition_map[p_current][p_next].append(t_current)
+
     return TraceData(
         events=events,
         times=times_sorted,
         page_intervals=page_intervals,
         access_history=access_history,
+        signal_to_changes=signal_to_changes,
+        transition_map=transition_map,
     )
