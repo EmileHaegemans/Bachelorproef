@@ -161,7 +161,6 @@ def _print_symbol_map(nav: TraceNavigator) -> None:
         return
 
     print("--- Page to Symbol Map ---")
-    # Sort numerically by the page index (e.g., _17 -> 17)
     def page_key(p: str) -> int:
         try:
             return int(p.lstrip("_"), 16)

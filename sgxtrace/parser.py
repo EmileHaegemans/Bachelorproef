@@ -110,7 +110,6 @@ def load_vcd_trace(path: str) -> TraceData:
 
             time_map[current_time][name] = val
 
-            # Index all signal changes
             signal_to_changes.setdefault(name, []).append((current_time, val))
 
             if is_page_signal(name):
@@ -129,7 +128,6 @@ def load_vcd_trace(path: str) -> TraceData:
     times_sorted = sorted(time_map.keys())
     events = [time_map[t] for t in times_sorted]
 
-    # Pre-calculate transition map for fast exploitation
     transition_map: Dict[str, Dict[str, List[int]]] = {}
     for i in range(len(access_history) - 1):
         t_current, p_current = access_history[i]

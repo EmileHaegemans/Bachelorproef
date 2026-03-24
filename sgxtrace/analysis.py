@@ -18,19 +18,12 @@ def get_page_intervals(
         return []
 
     intervals = trace.page_intervals[target]
-
-    # Use binary search to find relevant intervals if filters are provided
     if start_filter is None and end_filter is None:
         return intervals
 
     filtered: List[Tuple[int, int]] = []
-    # Binary search to find the first interval that could match
-    # Intervals are sorted by start time
     start_idx = 0
     if start_filter is not None:
-        # Find first interval where end >= start_filter
-        # Since intervals are sorted by start, and end > start, we can still use this as a heuristic
-        # but a simple loop over the sorted intervals is already quite fast once we find the start point.
         start_idx = bisect.bisect_left([i[1] for i in intervals], start_filter)
 
     for i in range(start_idx, len(intervals)):
@@ -48,7 +41,6 @@ def get_top_pages(trace: TraceData, n: int = 10) -> List[Tuple[str, int]]:
 
 
 def get_timeline_by_time(trace: TraceData, start_t: int, end_t: int) -> List[Tuple[int, str]]:
-    # Use binary search on access_history (sorted by timestamp)
     times = [item[0] for item in trace.access_history]
 
     start_idx = bisect.bisect_left(times, start_t)
