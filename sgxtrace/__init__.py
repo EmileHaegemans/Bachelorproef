@@ -5,6 +5,7 @@ from .analysis import (
     get_top_pages,
     get_transitions,
 )
+from .attack import AttackRunner
 from .model import NavigatorState, StepResult, TraceData
 from .navigator import TraceNavigator
 from .parser import is_page_signal, load_vcd_trace, normalize_page_name
@@ -15,6 +16,7 @@ __all__ = [
     "StepResult",
     "NavigatorState",
     "TraceNavigator",
+    "AttackRunner",
     "load_vcd_trace",
     "is_page_signal",
     "normalize_page_name",

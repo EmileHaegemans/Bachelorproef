@@ -34,3 +34,4 @@ class NavigatorState:
     active_pages: Set[str] = field(default_factory=set)
     page_breakpoints: Set[str] = field(default_factory=set)
     last_diff: Tuple[Set[str], Set[str]] = field(default_factory=lambda: (set(), set()))
+    pending_breakpoints: List[str] = field(default_factory=list)
