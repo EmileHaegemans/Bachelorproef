@@ -2,15 +2,11 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fd377cf7-a002-4bf0-a2d1-a06df54c051a" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/CLI_old.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/example_script.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/analysis.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/cli.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/model.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/navigator.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/sgxtrace/parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CLI.py" beforeDir="false" afterPath="$PROJECT_DIR$/CLI.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debug_jpeg_ranges.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/example_jpeg.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/sgxtrace/jpeg.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sgxtrace/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/sgxtrace/__init__.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,18 +31,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.example_script.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/home/senne/Documents/unif/3de_jaar/1ste_semester/Bachelorproef/Bachelorproef",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.example_script.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Version-Senne&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/senne/Documents/unif/3de_jaar/1ste_semester/Bachelorproef/Bachelorproef&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>

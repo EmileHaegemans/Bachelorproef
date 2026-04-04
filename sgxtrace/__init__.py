@@ -6,6 +6,15 @@ from .analysis import (
     get_transitions,
 )
 from .attack import AttackRunner
+from .jpeg import (
+    JpegAttackConfig,
+    JpegAttackResult,
+    JpegReconstruction,
+    JpegState,
+    attack_jpeg_trace,
+    attack_jpeg_vcd,
+    save_attack_outputs,
+)
 from .model import NavigatorState, StepResult, TraceData
 from .navigator import TraceNavigator
 from .parser import is_page_signal, load_vcd_trace, normalize_page_name
@@ -28,4 +37,11 @@ __all__ = [
     "get_timeline_by_time",
     "get_access_trace_slice",
     "get_transitions",
+    "JpegState",
+    "JpegAttackConfig",
+    "JpegReconstruction",
+    "JpegAttackResult",
+    "attack_jpeg_trace",
+    "attack_jpeg_vcd",
+    "save_attack_outputs",
 ]
