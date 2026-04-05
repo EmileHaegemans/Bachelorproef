@@ -4,9 +4,9 @@ from sgxtrace import attack_jpeg_vcd, save_attack_outputs
 from sgxtrace.jpeg import JpegAttackConfig
 
 TRACE = "traces/trace_libjpeg.vcd"
-OUTPUT_IMAGE = "jpeg_reconstruction.pgm"
-RAW_JSON = "jpeg_reconstruction.json"
-PREVIEW_PNG = "jpeg_reconstruction_preview.png"
+OUTPUT_IMAGE = "output/jpeg_reconstruction.pgm"
+RAW_JSON = "output/jpeg_reconstruction.json"
+PREVIEW_PNG = "output/jpeg_reconstruction_preview.png"
 COLOR_MODE = False   # True voor RGB, False voor grayscale
 
 

@@ -5,7 +5,16 @@ from .analysis import (
     get_top_pages,
     get_transitions,
 )
-from .attack import AttackRunner
+from .core import (
+    AttackRunner,
+    NavigatorState,
+    StepResult,
+    TraceData,
+    TraceNavigator,
+    is_page_signal,
+    load_vcd_trace,
+    normalize_page_name,
+)
 from .jpeg import (
     JpegAttackConfig,
     JpegAttackResult,
@@ -15,9 +24,6 @@ from .jpeg import (
     attack_jpeg_vcd,
     save_attack_outputs,
 )
-from .model import NavigatorState, StepResult, TraceData
-from .navigator import TraceNavigator
-from .parser import is_page_signal, load_vcd_trace, normalize_page_name
 from .symbols import find_pages_for_symbol, get_symbol_map, get_symbols_for_page
 
 __all__ = [

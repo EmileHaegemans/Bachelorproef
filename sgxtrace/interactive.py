@@ -10,8 +10,7 @@ from .analysis import (
     get_top_pages,
     get_transitions,
 )
-from .navigator import TraceNavigator
-from .parser import load_vcd_trace, normalize_page_name
+from .core import TraceNavigator, load_vcd_trace, normalize_page_name
 from .symbols import find_pages_for_symbol, get_symbol_map, get_symbols_for_page
 
 
@@ -129,7 +128,7 @@ def _print_access_trace(nav: TraceNavigator, start_idx: int, end_idx: int) -> No
 def _print_transitions(page: str, nav: TraceNavigator) -> None:
     target = normalize_page_name(page, nav.trace.page_intervals)
     transitions = get_transitions(nav.trace, target)
-    
+
     if not transitions:
         print(f"No transitions found for page {target}.")
         return
@@ -161,6 +160,7 @@ def _print_symbol_map(nav: TraceNavigator) -> None:
         return
 
     print("--- Page to Symbol Map ---")
+
     def page_key(p: str) -> int:
         try:
             return int(p.lstrip("_"), 16)
@@ -216,7 +216,7 @@ def interpret_command(command: str, context: dict) -> None:
         if len(parts) < 2:
             print("usage: load-binary <path>")
             return
-        
+
         path = parts[1]
         print(f"Loading symbols from {path}...")
         sym_map = get_symbol_map(path)
@@ -235,11 +235,11 @@ def interpret_command(command: str, context: dict) -> None:
         if len(parts) < 2:
             print("usage: map-page <page_name>")
             return
-        
+
         page = parts[1]
         if not page.startswith("_"):
             page = "_" + page
-            
+
         symbols = get_symbols_for_page(nav.trace, page)
         if symbols:
             print(f"Functions on page {page}:")
@@ -253,7 +253,7 @@ def interpret_command(command: str, context: dict) -> None:
         if len(parts) < 2:
             print("usage: map-symbol <keyword>")
             return
-        
+
         keyword = " ".join(parts[1:])
         results = find_pages_for_symbol(nav.trace, keyword)
         if results:
