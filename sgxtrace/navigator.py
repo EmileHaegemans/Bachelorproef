@@ -36,6 +36,7 @@ class TraceNavigator:
     def __init__(self, trace: TraceData):
         self.trace = trace
         self.state = NavigatorState()
+        self._history_times = [item[0] for item in self.trace.access_history]
 
     @property
     def current_step(self) -> int | None:
@@ -163,7 +164,7 @@ class TraceNavigator:
             return self.step(0)
 
         current_time = self.current_time if self.current_time is not None else -1
-        history_times = [item[0] for item in self.trace.access_history]
+        history_times = self._history_times
 
         import bisect
         # Find next event in access_history that is AFTER our current index 
