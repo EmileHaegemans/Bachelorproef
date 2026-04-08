@@ -1,21 +1,21 @@
 # Bachelorproef: Interactive Exploitation of Intel SGX Enclaves with SGX-Step
 
-This project provides a Python library for analyzing Intel SGX enclave execution traces captured with SGX-Step. The library enables side-channel attacks to reconstruct sensitive data from page access patterns.
+This project provides a Python library for analyzing Intel SGX enclave execution traces captured with SGX-Step. The library enables page-based side-channel attacks that reconstruct sensitive information from page access patterns.
 
 ## Features
 
-- **Trace Analysis**: Parse and navigate VCD (Value Change Dump) traces from SGX-Step
-- **Symbol Mapping**: Map ELF binary symbols to memory pages for targeted attacks
-- **Attack Frameworks**:
-  - `AttackRunner`: Declarative framework for building side-channel attacks with callbacks
-  - `TraceNavigator`: Efficient trace navigation with breakpoints
-- **Built-in Attacks**:
-  - RSA key reconstruction from Montgomery multiplication patterns
+- **Trace analysis**: parse and inspect VCD (Value Change Dump) traces from SGX-Step
+- **Symbol mapping**: map ELF symbols to enclave pages for targeted analysis
+- **Reusable attack framework**:
+  - `AttackRunner` for declarative attacks based on page hits and transitions
+  - `TraceNavigator` for breakpoint-driven trace exploration
+- **Built-in example attacks**:
+  - RSA exponent reconstruction from Montgomery multiplication patterns
   - JPEG image reconstruction from decompression access patterns
 
 ## Project Structure
 
-```
+```text
 Bachelorproef/
 ├── sgxtrace/          # Core library package
 │   ├── core.py        # Centralized library exports and shared API
@@ -23,157 +23,140 @@ Bachelorproef/
 │   ├── attack.py      # AttackRunner framework
 │   ├── navigator.py   # TraceNavigator for efficient navigation
 │   ├── parser.py      # VCD trace parsing
-│   ├── model.py       # Data models (TraceData, etc.)
-│   ├── symbols.py     # ELF symbol mapping
-│   ├── jpeg.py        # JPEG reconstruction logic
-│   ├── analysis.py    # Analysis utilities
-│   └── __init__.py    # Package initialization
+│   ├── model.py       # Data models (TraceData, StepResult, ...)
+│   ├── symbols.py     # ELF symbol mapping helpers
+│   ├── jpeg.py        # JPEG reconstruction state machine and exporters
+│   ├── analysis.py    # Analysis utilities on parsed traces
+│   └── __init__.py    # Public package exports
 ├── examples/          # Example scripts and helpers
-│   ├── example_attack.py
+│   ├── rsa_attack_runner.py
 │   ├── rsa_attack_clean.py
-│   ├── run_jpeg_attack.py
+│   ├── rsa_attack_legacy.py
+│   ├── jpeg_attack_reconstruction.py
 │   ├── jpeg_attack_navigator.py
-│   ├── example_script.py
-│   ├── example_symbols.py
 │   ├── debug_jpeg_ranges.py
+│   ├── example_symbols.py
 │   └── preview_pgm.py
-├── output/            # Generated outputs (images, JSON, etc.)
-├── traces/            # Input trace data files
-├── CLI.py             # Main interactive CLI launcher
-├── README.md          # This file
-└── .gitattributes     # Git file handling rules
+├── output/            # Generated outputs (images, JSON, previews)
+├── traces/            # Input trace data
+├── CLI.py             # Interactive CLI launcher
+└── README.md
 ```
 
 ## Quick Start
 
-### Basic Usage
-
-```python
-from sgxtrace import load_vcd_trace, AttackRunner
-
-# Load a trace
-trace = load_vcd_trace("traces/trace_rsa.vcd")
-
-# Create an attack runner
-runner = AttackRunner(trace)
-
-# Define callbacks for interesting transitions
-def on_square_operation(runner):
-    print("Square operation detected")
-
-def on_multiply_operation(runner):
-    print("Multiply operation detected")
-
-# Register callbacks
-runner.on_transition("modpow_page", "square_page", on_square_operation)
-runner.on_transition("modpow_page", "multiply_page", on_multiply_operation)
-
-# Run the attack
-runner.run()
-```
-
-### RSA Attack Example
-
-```python
-from sgxtrace import load_vcd_trace, AttackRunner
-
-# Clean, declarative RSA attack
-def run_rsa_attack():
-    trace = load_vcd_trace("traces/trace_rsa.vcd")
-    runner = AttackRunner(trace)
-
-    runner.state["symbols"] = []
-
-    def on_square(runner):
-        runner.state["symbols"].append("S")
-
-    def on_multiply(runner):
-        runner.state["symbols"].append("M")
-
-    runner.on_transition("_17", "_20", on_square)      # modpow -> square
-    runner.on_transition("_17", "_22", on_multiply)    # modpow -> multiply
-    runner.on_page("_31", lambda r: print(f"Operation: {''.join(r.state['symbols'])}"))
-
-    runner.run()
-```
-
-### JPEG Reconstruction
-
-```python
-from sgxtrace import attack_jpeg_vcd, save_attack_outputs
-from sgxtrace.jpeg import JpegAttackConfig
-
-# Configure and run JPEG attack
-config = JpegAttackConfig(num_colors=1)  # Grayscale
-result = attack_jpeg_vcd("traces/trace_libjpeg.vcd", config)
-
-# Save results (outputs go to output/ folder)
-save_attack_outputs(
-    result,
-    image_path="output/reconstructed.pgm",
-    preview_path="output/preview.png"
-)
-```
-
-## Architecture
-
-### Core Library
-
-The main library is centered in `sgxtrace.core`, which exposes the trace engine and reusable attack primitives.
-
-- **`sgxtrace.core.TraceData`**: Parsed VCD trace with events, timings, and page intervals
-- **`sgxtrace.core.TraceNavigator`**: Efficient navigation with breakpoints and page stepping
-- **`sgxtrace.core.AttackRunner`**: Declarative attack framework with callbacks
-- **`sgxtrace.jpeg.JpegReconstruction`**: Image reconstruction from page access patterns
-
-### Interactive CLI
-
-The interactive command-line interface lives in `sgxtrace.interactive` and uses the library core to provide trace exploration commands. The main launcher is `CLI.py` in the project root.
-
-### Attack Patterns
-
-The library supports two main approaches for implementing attacks:
-
-1. **Declarative Callbacks** (`AttackRunner`): Define interesting pages and transitions, register callbacks
-2. **Breakpoint Navigation** (`TraceNavigator`): Set breakpoints and jump between interesting events
-
-## Examples
-
-Run examples with `PYTHONPATH=. python examples/<script>.py`:
-
-- `examples/rsa_attack_runner.py`: Clean RSA attack using AttackRunner
-- `examples/rsa_attack_clean.py`: Improved RSA attack with better symbol decoding
-- `examples/jpeg_attack_reconstruction.py`: JPEG reconstruction using built-in functions
-- `examples/jpeg_attack_navigator.py`: JPEG attack using TraceNavigator
-- `examples/rsa_attack_legacy.py`: Legacy complex RSA attack (for comparison)
-- `examples/example_symbols.py`: Symbol mapping helper for page/function analysis
-- `examples/debug_jpeg_ranges.py`: Debug helper for JPEG page ranges
-- `examples/preview_pgm.py`: PGM image preview utility
-
-## CLI Interface
-
-Interactive exploration of traces:
-
-```bash
-python CLI.py
-```
-
-Available commands:
-
-- `load-trace <path>`: Load a VCD trace
-- `load-binary <path>`: Load ELF symbols for page mapping
-- `break-page <name>`: Set breakpoint on page activation
-- `step`: Navigate through trace
-- `timeline <start> <end>`: Show page access timeline
-
-## Installation
+### Installation
 
 ```bash
 pip install -e .
 ```
 
+### Basic trace loading
+
+```python
+from sgxtrace import load_vcd_trace
+
+trace = load_vcd_trace("traces/trace_rsa.vcd")
+print(len(trace.times))
+print(len(trace.access_history))
+```
+
+## Attack Overview
+
+### 1. RSA attack
+
+The RSA example scripts assume four pages of interest in the bundled trace:
+
+- `_17`: modular exponentiation anchor (`modpow`)
+- `_20`: square operation
+- `_22`: multiply operation
+- `_31`: end marker for one reconstructed exponent segment
+
+The attack works in two phases:
+
+1. observe transitions from `modpow` to `square` or `multiply`
+2. decode the resulting `A/B` symbol stream into exponent bits
+
+Use the clean version when you want the clearest implementation:
+
+```bash
+PYTHONPATH=. python examples/rsa_attack_clean.py
+```
+
+Use the runner version when you want a shorter example built on the same primitives:
+
+```bash
+PYTHONPATH=. python examples/rsa_attack_runner.py
+```
+
+### 2. JPEG reconstruction attack
+
+The JPEG attack models libjpeg decompression as a small state machine:
+
+- start of image processing
+- next row / start row transitions
+- IDCT phase
+- data-count phase
+
+The number of observed page hits in the data-count phase is used as a proxy for the reconstructed block intensity.
+
+Run the standard reconstruction pipeline:
+
+```bash
+PYTHONPATH=. python examples/jpeg_attack_reconstruction.py
+```
+
+This writes:
+
+- a reconstructed image (`.pgm`, `.ppm`, or `.png`)
+- a raw JSON dump of per-block counters
+- a scaled preview image for quick inspection
+
+Run the navigator-based variant when you want more control over the stepping logic:
+
+```bash
+PYTHONPATH=. python examples/jpeg_attack_navigator.py
+```
+
+## Library Building Blocks
+
+### `TraceData`
+
+`TraceData` is the parsed representation of a VCD trace. It stores, among other things:
+
+- `events`: changed signals per timestamp
+- `times`: sorted timestamps
+- `page_intervals`: active intervals per page
+- `access_history`: chronological page activations
+- `transition_map`: precomputed page-to-page transitions
+
+### `TraceNavigator`
+
+`TraceNavigator` lets you step through the parsed trace while keeping track of:
+
+- the current timestamp and event index
+- currently active pages
+- breakpoints on page activations
+- the last added and removed pages
+
+### `AttackRunner`
+
+`AttackRunner` wraps `TraceNavigator` and adds a callback API:
+
+- `on_page(page, callback)` triggers when a page becomes active
+- `on_transition(from_page, to_page, callback)` triggers on a specific page transition
+
+This is the main high-level API for clean attack implementations.
+
+## Other Utilities
+
+- `examples/debug_jpeg_ranges.py`: inspect which candidate pages are active in a JPEG trace
+- `examples/example_symbols.py`: map pages to ELF symbols and resolve pages by symbol name
+- `examples/preview_pgm.py`: convert a PGM/PPM reconstruction into a PNG preview
+- `CLI.py`: interactive trace exploration shell
+
 ## Dependencies
 
 - Python 3.8+
-- PIL/Pillow (for PNG output)
-- pyelftools (for symbol mapping)
+- Pillow (for PNG output)
+- pyelftools (for ELF symbol mapping)

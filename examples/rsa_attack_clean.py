@@ -1,55 +1,107 @@
-from sgxtrace import load_vcd_trace, AttackRunner
+from __future__ import annotations
 
-TRACE = "traces/trace_rsa.vcd"
+"""Clean RSA page-trace attack example.
 
-# Define the interesting pages for RSA Montgomery multiplication
-MODPOW_PAGE = "_17"  # The main modular exponentiation function
-SQUARE_PAGE = "_20"  # Square operation (A)
-MULTIPLY_PAGE = "_22"  # Multiply operation (B)
-END_PAGE = "_31"  # End of operation marker
+This script reconstructs RSA exponent bitstrings from a VCD page-access trace.
+It uses :class:`sgxtrace.AttackRunner` to declaratively react to a small set of
+interesting page transitions:
 
-def run_clean_rsa_attack():
+- ``modpow -> square``   emits symbol ``A``
+- ``modpow -> multiply`` emits symbol ``B``
+- ``rsa_n``             terminates one exponent reconstruction
+
+The symbol stream is then decoded with the Montgomery-ladder heuristic that was
+already used in the earlier prototype scripts.
+"""
+
+from sgxtrace import AttackRunner, load_vcd_trace
+
+TRACE_PATH = "traces/trace_rsa.vcd"
+
+# Hardcoded page mapping for the provided RSA demo trace.
+MODPOW_PAGE = "_17"
+SQUARE_PAGE = "_20"
+MULTIPLY_PAGE = "_22"
+END_PAGE = "_31"
+
+
+def decode_montgomery_ladder(symbols: str) -> str | None:
+    """Decode a Montgomery-ladder symbol sequence into a bitstring.
+
+    The decoding rule matches the logic from the earlier attack prototype:
+
+    - leading ``A`` symbols are ignored
+    - ``B`` decodes to bit ``1``
+    - ``AA`` decodes to bit ``0``
+
+    Args:
+        symbols: Sequence of ``A`` and ``B`` symbols extracted from the trace.
+
+    Returns:
+        The reconstructed bitstring, or ``None`` when no valid bits were found.
     """
-    Clean RSA attack using AttackRunner with declarative callbacks.
-    This demonstrates the TA's suggested approach.
+    if not symbols:
+        return None
+
+    tail = symbols.lstrip("A")
+    bits: list[str] = []
+    index = 0
+
+    while index < len(tail):
+        if tail[index] == "B":
+            bits.append("1")
+            index += 1
+        elif tail[index : index + 2] == "AA":
+            bits.append("0")
+            index += 2
+        else:
+            index += 1
+
+    bitstring = "".join(bits)
+    return bitstring or None
+
+
+def run_clean_rsa_attack(trace_path: str = TRACE_PATH, *, verbose: bool = False) -> list[tuple[str, int]]:
+    """Run the RSA reconstruction attack on a VCD trace.
+
+    Args:
+        trace_path: Path to the RSA VCD trace.
+        verbose: Whether to enable verbose navigator/debug output.
+
+    Returns:
+        A list of ``(bitstring, integer_value)`` tuples for each decoded segment.
     """
-    trace = load_vcd_trace(TRACE)
-    print(f"Loaded trace with {len(trace.times)} timestamps")
+    trace = load_vcd_trace(trace_path)
+    print(f"Loaded trace with {len(trace.times)} timestamps and {len(trace.access_history)} page activations.")
 
     runner = AttackRunner(trace)
-    runner.verbose = False  # Set to True for debugging
-
-    # State for reconstructing the key
+    runner.verbose = verbose
     runner.state["current_symbols"] = []
-    runner.state["reconstructed_bits"] = []
+    runner.state["decoded_segments"] = []
 
-    def on_square_operation(runner):
-        """Called when square operation is detected (modpow -> square)"""
-        runner.state["current_symbols"].append("A")  # Square
+    def on_modpow_start(r: AttackRunner) -> None:
+        """Mark the start of a new modular exponentiation segment."""
+        if not r.state["current_symbols"]:
+            r.state["current_symbols"].append("S")
 
-    def on_multiply_operation(runner):
-        """Called when multiply operation is detected (modpow -> multiply)"""
-        runner.state["current_symbols"].append("B")  # Multiply
+    def on_square_operation(r: AttackRunner) -> None:
+        """Record a square step as symbol ``A``."""
+        r.state["current_symbols"].append("A")
 
-    def on_modpow_start(runner):
-        """Called when modpow operation starts - this is the initial square"""
-        if not runner.state["current_symbols"]:  # Only add if this is the start
-            runner.state["current_symbols"].append("S")  # Initial square
+    def on_multiply_operation(r: AttackRunner) -> None:
+        """Record a multiply step as symbol ``B``."""
+        r.state["current_symbols"].append("B")
 
-    def on_operation_end(runner):
-        """Called when an RSA operation completes"""
-        symbols = "".join(runner.state["current_symbols"])
+    def on_operation_end(r: AttackRunner) -> None:
+        """Decode and store one completed RSA operation."""
+        symbols = "".join(r.state["current_symbols"])
+        bitstring = decode_montgomery_ladder(symbols)
 
-        if symbols:
-            # Decode the Montgomery ladder pattern
-            bits = decode_montgomery_ladder(symbols)
-            if bits:
-                runner.state["reconstructed_bits"].append(bits)
+        if bitstring is not None:
+            r.state["decoded_segments"].append((bitstring, int(bitstring, 2)))
 
-        # Reset for next operation
-        runner.state["current_symbols"] = []
+        r.state["current_symbols"] = []
 
-    # Register callbacks for state transitions
     runner.on_page(MODPOW_PAGE, on_modpow_start)
     runner.on_transition(MODPOW_PAGE, SQUARE_PAGE, on_square_operation)
     runner.on_transition(MODPOW_PAGE, MULTIPLY_PAGE, on_multiply_operation)
@@ -58,43 +110,20 @@ def run_clean_rsa_attack():
     print("Running RSA attack with AttackRunner...")
     runner.run()
 
-    # Output results
-    print(f"\nReconstructed {len(runner.state['reconstructed_bits'])} key bits:")
-    for i, bits in enumerate(runner.state["reconstructed_bits"]):
-        value = int(bits, 2)
-        print(f"[{i}] bits='{bits}' value={value}")
+    decoded_segments: list[tuple[str, int]] = runner.state["decoded_segments"]
+    print(f"\nDecoded {len(decoded_segments)} RSA segments:")
+    for index, (bits, value) in enumerate(decoded_segments):
+        print(f"[{index}] bits={bits!r} value={value}")
 
-    # For RSA, typically the first two values are e and d
-    if len(runner.state["reconstructed_bits"]) >= 2:
-        e_bits, d_bits = runner.state["reconstructed_bits"][:2]
-        e = int(e_bits, 2)
-        d = int(d_bits, 2)
-        print(f"\nRSA parameters: e={e}, d={d}")
+    if len(decoded_segments) >= 2:
+        public_exponent = decoded_segments[0][1]
+        private_exponent = decoded_segments[1][1]
+        print(f"\nRecovered RSA parameters:")
+        print(f"  e = {public_exponent}")
+        print(f"  d = {private_exponent}")
 
-def decode_montgomery_ladder(symbols: str) -> str | None:
-    """
-    Decode Montgomery ladder pattern from symbols.
-    A = Square, B = Multiply
-    Based on the original example_attack.py logic
-    """
-    if not symbols:
-        return None
+    return decoded_segments
 
-    # Strip leading A's and decode
-    tail = symbols.lstrip("A")
-    bits, i = [], 0
-    while i < len(tail):
-        if tail[i] == "B":
-            bits.append("1")
-            i += 1
-        elif tail[i:i+2] == "AA":
-            bits.append("0")
-            i += 2
-        else:
-            i += 1
-
-    bitstring = "".join(bits)
-    return bitstring if bitstring else None
 
 if __name__ == "__main__":
     run_clean_rsa_attack()
