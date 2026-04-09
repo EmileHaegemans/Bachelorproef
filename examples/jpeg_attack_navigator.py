@@ -1,9 +1,24 @@
-from __future__ import annotations
 
-"""JPEG attack example using :class:`sgxtrace.TraceNavigator` directly.
+"""
+JPEG Attack with TraceNavigator (Interactive)
+--------------------------------------------
 
-This variant is useful when you want to inspect how the JPEG reconstruction
-state machine evolves while only jumping between relevant page activations.
+Purpose:
+    Interactive JPEG attack script using TraceNavigator to step through the trace
+    and manually drive the JPEG state machine. Useful for debugging, educational
+    purposes, or inspecting the state machine's evolution.
+
+Workflow:
+    - Loads the VCD trace and configures page ranges.
+    - Sets breakpoints for all relevant pages using TraceNavigator.
+    - Steps through the trace, updating the JPEG state machine only when a breakpoint is hit.
+    - Reconstructs the image block-by-block as the state machine transitions.
+    - Saves the reconstructed image as PGM and also as a PNG preview for easy viewing.
+    - Prints detailed progress and output file locations.
+
+Use case:
+    Best for debugging, fine-grained analysis, or when you want to see exactly how
+    the state machine evolves during the attack.
 """
 
 from sgxtrace import TraceNavigator, load_vcd_trace
@@ -85,7 +100,14 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
         final_state=state,
         processed_pages=processed_pages,
     )
-    attack_result.save_image(OUTPUT_IMAGE)
+
+    # Also save a PNG preview for easy viewing
+    OUTPUT_PNG = "output/jpeg_reconstruction_navigator.png"
+    try:
+        attack_result.reconstruction.save_png_preview(OUTPUT_PNG, scale=16)
+        print(f"PNG preview saved:     {OUTPUT_PNG}")
+    except Exception as e:
+        print(f"Could not save PNG preview: {e}")
 
     width, height = reconstruction.reconstructed_size()
     print(f"Processed breakpoints: {processed_pages}")

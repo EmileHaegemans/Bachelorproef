@@ -1,13 +1,24 @@
-from __future__ import annotations
 
-"""Reference script for the JPEG page-trace reconstruction attack.
+"""
+JPEG Page-Trace Reconstruction Attack (Automated)
+------------------------------------------------
 
-This script configures the built-in JPEG state machine, runs it on a VCD trace,
-and stores three artefacts:
+Purpose:
+    Reference script for the automated JPEG page-trace reconstruction attack.
+    Configures the JPEG state machine, processes a VCD trace, and outputs:
+      - A reconstructed image (PGM/PPM/PNG)
+      - A JSON file with per-block data counts
+      - A scaled PNG preview for quick inspection
 
-- a reconstructed image (PGM/PPM/PNG)
-- a JSON dump with the raw per-block data counts
-- a scaled PNG preview for quick inspection
+Workflow:
+    - Loads a VCD trace of libjpeg execution.
+    - Sets up a JpegAttackConfig with page ranges tuned for the demo trace.
+    - Calls attack_jpeg_vcd() to automatically process the trace and reconstruct the image.
+    - Uses save_attack_outputs() to write the image, JSON, and preview files.
+    - Prints a summary of the attack and output locations.
+
+Use case:
+    Best for batch processing, reference results, and when you want a simple, automated workflow.
 """
 
 from pathlib import Path

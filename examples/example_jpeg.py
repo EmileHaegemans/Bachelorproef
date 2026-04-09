@@ -1,4 +1,24 @@
-from __future__ import annotations
+
+"""
+Configurable JPEG Page-Trace Attack (Command-Line Tool)
+------------------------------------------------------
+
+Purpose:
+    Highly configurable command-line tool for running the JPEG attack with all key
+    parameters exposed as arguments. Ideal for experimentation and automation.
+
+Workflow:
+    - Accepts command-line arguments for the trace file, output files, all page ranges,
+      color mode, and more.
+    - Builds a JpegAttackConfig from the provided arguments.
+    - Runs the attack using attack_jpeg_vcd().
+    - Outputs the reconstructed image, JSON, and PNG preview to user-specified locations.
+    - Prints a summary of the attack and the effective configuration.
+
+Use case:
+    Best for users who want to experiment with different parameters, automate runs, or
+    tune the attack for new traces without editing code.
+"""
 
 import argparse
 

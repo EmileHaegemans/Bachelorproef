@@ -1,3 +1,33 @@
+
+"""
+Legacy RSA Exponent Reconstruction Attack
+----------------------------------------
+
+This script demonstrates a legacy approach to reconstructing RSA exponent bitstrings
+from a VCD page-access trace. It uses hardcoded page identifiers and a simple symbol
+extraction/decoding process to recover the exponent bits.
+
+Workflow:
+1. Loads a VCD trace file.
+2. Identifies key pages: ANCHOR, A (square), B (multiply), END.
+3. Converts page transitions into a symbol sequence:
+    - ANCHOR → A       → "A"
+    - ANCHOR → B       → "B"
+    - ANCHOR → END     → terminates the sequence
+4. Decodes the symbol sequence using the Montgomery ladder heuristic:
+    - Leading "A"s are ignored
+    - "B"  → bit "1"
+    - "AA" → bit "0"
+5. Splits the trace into segments at each END page, decodes each segment, and recovers
+    the exponent bits and their integer values.
+
+Output:
+- Prints recovered symbol sequences, bitstrings, and integer values.
+- Prints the recovered public (e) and private (d) exponents.
+
+This script is useful for comparison with more modern or modular attack scripts.
+"""
+
 from sgxtrace import load_vcd_trace, get_page_intervals, get_timeline_by_time
 
 TRACE = "traces/trace_rsa.vcd"

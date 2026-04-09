@@ -1,3 +1,35 @@
+
+"""
+RSA Exponent Reconstruction via Symbolic Page Tracing
+-----------------------------------------------------
+
+This script reconstructs RSA exponent bitstrings from a VCD page-access trace using
+symbol mapping from an ELF binary. It demonstrates how to map low-level memory access
+patterns to high-level cryptographic secrets by tracking page transitions and decoding
+them into exponent bits.
+
+Workflow:
+1. Loads a VCD trace and ELF binary to map memory pages to function symbols.
+2. Identifies key pages: "modpow" (anchor), "square", "multiply", and "rsa_n" (end).
+3. Converts page transitions into a symbol sequence:
+    - modpow → square   → "A"
+    - modpow → multiply → "B"
+    - modpow → end      → terminates the sequence
+4. Decodes the symbol sequence using the Montgomery ladder heuristic:
+    - Leading "A"s are ignored
+    - "B"  → bit "1"
+    - "AA" → bit "0"
+5. Splits the trace into segments at each "end" page, decodes each segment, and recovers
+    the exponent bits and their integer values.
+
+Output:
+- Prints discovered page mappings.
+- Prints recovered symbol sequences, bitstrings, and integer values.
+- If at least two segments are found, prints the recovered public (e) and private (d) exponents.
+
+This script is useful for analyzing side-channel traces of RSA implementations.
+"""
+
 from sgxtrace import load_vcd_trace, get_page_intervals, get_timeline_by_time
 from sgxtrace.symbols import get_symbol_map, find_page_by_exact_symbol
 

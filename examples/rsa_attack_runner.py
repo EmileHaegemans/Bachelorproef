@@ -1,11 +1,31 @@
-from __future__ import annotations
 
-"""Minimal RSA attack example built on top of :class:`sgxtrace.AttackRunner`.
-
-Compared to ``rsa_attack_clean.py``, this version intentionally stays compact,
-but it still uses the same helper functions and output format so that the two
-examples remain easy to compare.
 """
+Minimal RSA Exponent Reconstruction Attack (Runner Version)
+----------------------------------------------------------
+
+This script provides a compact example of reconstructing RSA exponent bitstrings
+from a VCD page-access trace using the AttackRunner class. It is designed for
+brevity and quick reference, while maintaining the same logic and output format
+as the more verbose clean version.
+
+Workflow:
+1. Loads a VCD trace file.
+2. Identifies key pages: ANCHOR_PAGE, SQUARE_PAGE, MULTIPLY_PAGE, END_PAGE.
+3. Uses AttackRunner to react to page transitions:
+    - ANCHOR_PAGE → SQUARE_PAGE   → "A"
+    - ANCHOR_PAGE → MULTIPLY_PAGE → "B"
+    - END_PAGE triggers decoding and storage of the segment
+4. Decodes the symbol sequence using the Montgomery ladder heuristic:
+    - Leading "A"s are ignored
+    - "B"  → bit "1"
+    - "AA" → bit "0"
+5. Collects and prints the recovered symbol sequences, bitstrings, and integer values.
+    Prints the recovered public (e) and private (d) exponents if available.
+
+This script is useful for quick demonstrations and for comparing with more detailed attack scripts.
+"""
+
+from __future__ import annotations
 
 from sgxtrace import AttackRunner, load_vcd_trace
 
