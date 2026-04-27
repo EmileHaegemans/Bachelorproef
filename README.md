@@ -1,5 +1,9 @@
 # Bachelorproef: SGX-Step Trace Analysis & Side-Channel Attacks
 
+<p align="center">
+  <img src="./logo_SGXTraces_library.svg" alt="SGX-Traces Library logo" width="360">
+</p>
+
 This project provides a Python library and example scripts for analyzing Intel SGX enclave execution traces captured with SGX-Step. It enables page-based side-channel attacks that reconstruct sensitive information from page access patterns, with a focus on modular, reusable attack logic and practical demonstrations.
 
 ## Features
@@ -52,6 +56,7 @@ pip install -e .
 
 ```python
 from sgxtrace import load_vcd_trace
+
 trace = load_vcd_trace("traces/trace_rsa.vcd")
 print(len(trace.times), len(trace.access_history))
 ```
@@ -94,9 +99,11 @@ The JPEG attacks reconstruct a grayscale or color image from a libjpeg decompres
   Lets you inspect state transitions and outputs a PGM and PNG preview.
 
 - **Configurable CLI:**
+
   ```bash
   python examples/example_jpeg.py --help
   ```
+
   Allows full control over page ranges, color mode, and output files.
 
 ## Library Building Blocks
@@ -132,8 +139,6 @@ High-level API for declarative attacks:
 - Python 3.8+
 - Pillow (for PNG output)
 - pyelftools (for ELF symbol mapping)
-
-*
 
 ## Interactive Command-Line Interface (CLI)
 
@@ -177,9 +182,11 @@ The CLI is ideal for:
 ## How to Use This Library
 
 1. Install in editable mode:
+
    ```bash
    pip install -e .
    ```
+
 2. Place your VCD traces in the `traces/` directory.
 3. Run or adapt the example scripts in `examples/` to analyze traces or build your own attacks.
 
