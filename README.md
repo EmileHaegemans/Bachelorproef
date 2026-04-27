@@ -1,8 +1,5 @@
 # Bachelorproef: SGX-Step Trace Analysis & Side-Channel Attacks
 
-<p align="center">
-  <img src="./logo_SGXTraces_library.png" alt="SGXTrace logo" width="560">
-</p>
 
 This project provides a Python library and example scripts for analyzing Intel SGX enclave execution traces captured with SGX-Step. It enables page-based side-channel attacks that reconstruct sensitive information from page access patterns, with a focus on modular, reusable attack logic and practical demonstrations.
 
@@ -107,6 +104,10 @@ The JPEG attacks reconstruct a grayscale or color image from a libjpeg decompres
   Allows full control over page ranges, color mode, and output files.
 
 ## Library Building Blocks
+
+<p align="center">
+  <img src="logo_SGXTraces_library.png" alt="SGXTrace logo" width="560">
+</p>
 
 ### `TraceData`
 
