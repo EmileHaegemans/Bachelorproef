@@ -4,4 +4,8 @@ setup(
     name="sgxtrace",
     version="0.1",
     packages=find_packages(),
+    install_requires=[
+        "pyelftools",
+        "Pillow",
+    ],
 )
