@@ -409,18 +409,39 @@ def attack_jpeg_trace(
     if config is None:
         config = JpegAttackConfig()
 
+    # Pre-compute the set of pages that can drive a state transition.
+    # Pages outside this set never affect the state machine, so we skip them
+    # for efficiency and to align with the navigator-driven attack which
+    # filters via breakpoints on these same pages.
+    interesting_pages: set[int] = set()
+    for s in JpegState:
+        interesting_pages.update(config.pages_for_state(s))
+    if config.data_count_pages:
+        interesting_pages.update(config.data_count_pages)
+
     state = JpegState.PRE_START
     reconstruction = JpegReconstruction(num_colors=config.num_colors)
     data_counter = 0
     processed_pages = 0
 
     for _, page_number in _iter_v1_page_events(trace):
+        if page_number not in interesting_pages:
+            continue
         prev_state = state
         new_state = config.next_state(state, page_number)
 
         if prev_state == JpegState.IDCT_SLOW and new_state == JpegState.DATA_COUNT:
             data_counter = 1
-        elif prev_state == JpegState.DATA_COUNT and new_state == JpegState.DATA_COUNT:
+        elif (
+            prev_state == JpegState.DATA_COUNT
+            and new_state == JpegState.DATA_COUNT
+            and config.page_matches_state(JpegState.DATA_COUNT, page_number)
+        ):
+            # Only increment when the page actually matched the DATA_COUNT
+            # range. Without this guard, a page that is in *no* state's range
+            # leaves new_state == prev_state == DATA_COUNT and would falsely
+            # increment, over-counting blocks (the bug observed in v1, see
+            # EVALUATION.md §13).
             data_counter += 1
 
         reconstruction.reconstruct_transition(prev_state, new_state, data_counter)

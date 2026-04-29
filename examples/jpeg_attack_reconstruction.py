@@ -35,16 +35,24 @@ COLOR_MODE = False  # True for RGB, False for grayscale.
 
 
 def build_default_config(*, color: bool = COLOR_MODE) -> JpegAttackConfig:
-    """Return the page ranges that were tuned for the bundled JPEG demo trace."""
+    """Return the page ranges tuned for the bundled JPEG demo trace.
+
+    The DATA_COUNT range is set to the wide [150, 4340) span used by the
+    TLBlur-SGX Rust reference attack. With this range the Python output
+    is byte-identical to the Rust BMP for ~97% of pixels (Pearson 0.99).
+    A narrower range like {154, 155, 156} also produces a recognisable
+    image but undercounts blocks because pages 150-153 and 157-4339 carry
+    additional data accesses that should also count. See EVALUATION.md §13.
+    """
     return JpegAttackConfig(
         start_range=range(54, 55),
         next_row_range=range(44, 45),
         start_row_range=range(58, 59),
         pre_idct_slow_range=range(56, 57),
         idct_slow_range=range(62, 64),
-        data_count_range_no_aexnotify=range(154, 157),
-        data_count_range_aexnotify=range(154, 157),
-        data_count_pages=frozenset({154, 155, 156}),
+        data_count_range_no_aexnotify=range(150, 4340),
+        data_count_range_aexnotify=range(150, 4335),
+        data_count_pages=None,
         num_colors=3 if color else 1,
         aexnotify=False,
     )

