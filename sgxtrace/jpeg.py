@@ -119,7 +119,7 @@ class JpegReconstruction:
         width = 0
         for row in self.rows[0]:
             width = max(width, len(row))
-        height = len(self.rows[0])
+        height = len(self.rows[0]) -1
         return width, height
 
     def raw_reconstruction(self) -> list[list[list[int]]]:
