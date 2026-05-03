@@ -1,3 +1,12 @@
+"""
+ELF symbol -> page mapping helpers.
+
+Loads the .symtab / .dynsym sections of an enclave binary and groups
+every symbol by the 4 KiB page it lives on. The resulting map can be
+attached to TraceData.symbol_map and used to look up pages by symbol
+name (handy when page numbers shift between rebuilds of the enclave).
+"""
+
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, TYPE_CHECKING
@@ -9,8 +18,15 @@ if TYPE_CHECKING:
 
 def get_symbol_map(elf_path: str) -> Dict[str, str]:
     """
-    Reads an ELF file and returns a mapping of page names (e.g., '_17')
-    to the function symbols (headers) found at those addresses.
+    Read an ELF file and return a page_name -> symbols map.
+
+    Iterates the .symtab and .dynsym sections, divides each non-zero
+    symbol address by 4096 (the page size), and groups symbols by the
+    resulting page index. Multiple symbols on the same page are joined
+    with ", ".
+
+    @param elf_path path to the enclave's ELF binary
+    @return mapping like {"_17": "modpow@0x11000, ..."}; empty on error
     """
     mapping: Dict[str, str] = {}
     
@@ -53,7 +69,13 @@ def get_symbol_map(elf_path: str) -> Dict[str, str]:
 
 
 def get_symbols_for_page(trace: TraceData, page: str) -> List[str]:
-    """Returns all symbols mapped to a specific page."""
+    """
+    Return every symbol mapped to a specific page.
+
+    @param trace the TraceData carrying a populated symbol_map
+    @param page the canonical page name (e.g. "_17")
+    @return list of "name@0xaddr" strings; empty if the page is unknown
+    """
     symbols_str = trace.symbol_map.get(page, "")
     if not symbols_str:
         return []
@@ -62,7 +84,13 @@ def get_symbols_for_page(trace: TraceData, page: str) -> List[str]:
 
 def find_pages_for_symbol(trace: TraceData, pattern: str) -> List[Tuple[str, str]]:
     """
-    Returns a list of (page, full_symbol_name) for symbols matching the pattern.
+    Find every (page, symbol) pair whose symbol name matches a substring.
+
+    Matching is case-insensitive.
+
+    @param trace the TraceData carrying a populated symbol_map
+    @param pattern substring to search for inside symbol names
+    @return list of (page_name, full_symbol_string) matches
     """
     results = []
     pattern = pattern.lower()
@@ -76,8 +104,14 @@ def find_pages_for_symbol(trace: TraceData, pattern: str) -> List[Tuple[str, str
 
 def find_page_by_exact_symbol(trace: TraceData, symbol_name: str) -> str | None:
     """
-    Returns the page name (e.g. '_17') that contains the exact symbol name.
-    Useful when multiple symbols share a page or have similar names.
+    Resolve the page hosting a symbol by exact name match.
+
+    Useful when several symbols share a page or have similar names and
+    the substring search of find_pages_for_symbol would be ambiguous.
+
+    @param trace the TraceData carrying a populated symbol_map
+    @param symbol_name the exact symbol name (without "@0x..." suffix)
+    @return the canonical page name (e.g. "_17"), or None if not found
     """
     pattern = f"{symbol_name}@"
     for page, symbols_str in trace.symbol_map.items():

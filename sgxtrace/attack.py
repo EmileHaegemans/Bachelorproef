@@ -1,3 +1,12 @@
+"""
+Declarative event-driven runner for trace-based side-channel attacks.
+
+AttackRunner wraps a TraceNavigator and lets the caller register
+callbacks on page activations and on page-to-page transitions. The
+runner walks the trace via page_step() and dispatches callbacks at
+every breakpoint hit.
+"""
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -8,34 +17,73 @@ from .navigator import TraceNavigator
 
 class AttackRunner:
     """
-    A declarative runner for trace-based attacks.
-    It uses TraceNavigator to efficiently jump between pages of interest
-    and triggers callbacks when specific pages are hit or transitions occur.
+    Declarative runner for trace-based attacks.
+
+    Uses TraceNavigator to jump between pages of interest and
+    triggers user-supplied callbacks when specific pages are hit
+    or specific transitions occur.
     """
 
     def __init__(self, trace: TraceData):
+        """
+        Wrap a parsed trace in a fresh runner.
+
+        @param trace the TraceData to attack
+        """
         self.nav = TraceNavigator(trace)
         self.page_callbacks: Dict[str, List[Callable[[AttackRunner], None]]] = {}
         self.transition_callbacks: Dict[Tuple[str, str], List[Callable[[AttackRunner], None]]] = {}
-        
+
+        # Shared scratchpad available to every callback. Attacks use
+        # this to accumulate symbols, results and any per-attack state.
         self.state: Dict[str, Any] = {}
+
+        # The previous breakpoint page hit, used to detect transitions.
         self.last_interesting_page: Optional[str] = None
+
+        # The breakpoint page currently being processed.
         self.current_page: Optional[str] = None
+
+        # When True, the runner prints a debug line at every breakpoint hit.
         self.verbose = False
 
     def on_page(self, page: str, callback: Callable[[AttackRunner], None]) -> None:
-        """Register a callback for when a specific page is activated."""
+        """
+        Register a callback fired when a page becomes active.
+
+        Internally adds page as a navigator breakpoint.
+
+        @param page the page name (canonicalized via normalize_page_name)
+        @param callback function receiving this runner when the page activates
+        """
         p_norm = self.nav.add_breakpoint(page)
         self.page_callbacks.setdefault(p_norm, []).append(callback)
 
     def on_transition(self, from_page: str, to_page: str, callback: Callable[[AttackRunner], None]) -> None:
-        """Register a callback for a specific transition between two pages."""
+        """
+        Register a callback fired on a specific page transition.
+
+        The callback fires when to_page activates immediately after
+        from_page (i.e. with no other breakpoint hit in between).
+        Both pages are added as navigator breakpoints.
+
+        @param from_page the source page of the transition
+        @param to_page the destination page of the transition
+        @param callback function receiving this runner when the transition occurs
+        """
         f_norm = self.nav.add_breakpoint(from_page)
         t_norm = self.nav.add_breakpoint(to_page)
         self.transition_callbacks.setdefault((f_norm, t_norm), []).append(callback)
 
     def run(self) -> None:
-        """Execute the attack by jumping between breakpoints."""
+        """
+        Execute the attack by jumping between breakpoints.
+
+        Resets the navigator, then repeatedly calls page_step until
+        end-of-trace. At every breakpoint hit fires all matching
+        page callbacks first, then any transition callbacks for
+        (last_interesting_page, current_page).
+        """
         self.nav.reset()
         self.last_interesting_page = None
         self.current_page = None

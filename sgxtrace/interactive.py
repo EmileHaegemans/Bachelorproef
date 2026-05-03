@@ -1,3 +1,11 @@
+"""
+Interactive command-line shell for exploring a parsed trace.
+
+Implements the read-eval-print loop launched by CLI.py: load a VCD
+file, walk it step-by-step, set page breakpoints, query page
+intervals/transitions, and load ELF symbols for page mapping.
+"""
+
 from __future__ import annotations
 
 import dataclasses
@@ -15,6 +23,7 @@ from .symbols import find_pages_for_symbol, get_symbol_map, get_symbols_for_page
 
 
 def print_help() -> None:
+    """Print the list of supported CLI commands."""
     print(
         """
 Available commands:
@@ -45,6 +54,13 @@ def _print_step_result(
     nav: TraceNavigator,
     page_step: bool = False,
 ) -> None:
+    """
+    Pretty-print the outcome of a step / page_step.
+
+    @param result the StepResult returned by the navigator
+    @param nav the navigator (for trace size and active page count)
+    @param page_step True when triggered by `page-step`, False for `step`
+    """
     total_events = len(nav.trace.events)
     active_pages_count = len(nav.active_pages)
 
@@ -76,6 +92,11 @@ def _print_step_result(
 
 
 def _print_active_pages(nav: TraceNavigator) -> None:
+    """
+    Print the navigator's current step, time and active pages.
+
+    @param nav the navigator to inspect
+    """
     print("step:", nav.current_step, "| time:", nav.current_time)
     pages = sorted(nav.active_pages)
     print("active_pages_count:", len(pages))
@@ -83,6 +104,14 @@ def _print_active_pages(nav: TraceNavigator) -> None:
 
 
 def _print_frequency(page: str, nav: TraceNavigator, start_t: int | None, end_t: int | None) -> None:
+    """
+    Print every activation interval of a page, optionally time-filtered.
+
+    @param page the page name (normalized internally)
+    @param nav the navigator carrying the trace
+    @param start_t optional minimum end timestamp
+    @param end_t optional maximum start timestamp
+    """
     target = normalize_page_name(page, nav.trace.page_intervals)
     intervals = get_page_intervals(nav.trace, target, start_t, end_t)
     print(f"--- Access intervals for Page {target} ---")
@@ -103,6 +132,13 @@ def _print_frequency(page: str, nav: TraceNavigator, start_t: int | None, end_t:
 
 
 def _print_timeline(nav: TraceNavigator, start_t: int, end_t: int) -> None:
+    """
+    Print page rising-edges in [start_t, end_t] in chronological order.
+
+    @param nav the navigator carrying the trace
+    @param start_t inclusive lower bound on timestamp
+    @param end_t inclusive upper bound on timestamp
+    """
     rows = get_timeline_by_time(nav.trace, start_t, end_t)
     print(f"--- Timeline (time {start_t} to {end_t}) ---")
     if not rows:
@@ -114,6 +150,13 @@ def _print_timeline(nav: TraceNavigator, start_t: int, end_t: int) -> None:
 
 
 def _print_access_trace(nav: TraceNavigator, start_idx: int, end_idx: int) -> None:
+    """
+    Print a slice of access_history by index instead of timestamp.
+
+    @param nav the navigator carrying the trace
+    @param start_idx inclusive lower bound on history index
+    @param end_idx exclusive upper bound on history index
+    """
     rows = get_access_trace_slice(nav.trace, start_idx, end_idx)
     print(f"--- Access Trace (index {start_idx} to {end_idx}) ---")
     if not rows:
@@ -126,6 +169,12 @@ def _print_access_trace(nav: TraceNavigator, start_idx: int, end_idx: int) -> No
 
 
 def _print_transitions(page: str, nav: TraceNavigator) -> None:
+    """
+    Print every page that follows the given page, with counts and percentages.
+
+    @param page the source page (normalized internally)
+    @param nav the navigator carrying the trace
+    """
     target = normalize_page_name(page, nav.trace.page_intervals)
     transitions = get_transitions(nav.trace, target)
 
@@ -148,6 +197,12 @@ def _print_transitions(page: str, nav: TraceNavigator) -> None:
 
 
 def _print_top_pages(amount: int, nav: TraceNavigator) -> None:
+    """
+    Print the N pages with the highest number of activations.
+
+    @param amount number of entries to show
+    @param nav the navigator carrying the trace
+    """
     top = get_top_pages(nav.trace, amount)
     print(f"Top {amount} most activated pages:")
     for page, count in top:
@@ -155,6 +210,11 @@ def _print_top_pages(amount: int, nav: TraceNavigator) -> None:
 
 
 def _print_symbol_map(nav: TraceNavigator) -> None:
+    """
+    Print the page-to-symbol map loaded from an ELF file.
+
+    @param nav the navigator carrying the trace (with symbol_map populated)
+    """
     if not nav.trace.symbol_map:
         print("No symbol map loaded. Use 'load-binary <path>' first.")
         return
@@ -175,6 +235,15 @@ def _print_symbol_map(nav: TraceNavigator) -> None:
 
 
 def interpret_command(command: str, context: dict) -> None:
+    """
+    Parse and execute a single CLI command line.
+
+    Mutates context["navigator"] when a trace is loaded. Raises
+    SystemExit on `quit`.
+
+    @param command the raw command line typed by the user
+    @param context shared CLI state (carries the active TraceNavigator)
+    """
     parts = command.split()
     if not parts:
         return
@@ -388,6 +457,9 @@ def interpret_command(command: str, context: dict) -> None:
 
 
 def main() -> None:
+    """
+    Entry point: run the interactive CLI loop until EOF or `quit`.
+    """
     print("-- PYTHON CLI STEPPER --")
     print("Type 'help' for commands.\n")
 

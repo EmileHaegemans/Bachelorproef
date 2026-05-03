@@ -42,7 +42,7 @@ def build_default_config(*, color: bool = COLOR_MODE) -> JpegAttackConfig:
     is byte-identical to the Rust BMP for ~97% of pixels (Pearson 0.99).
     A narrower range like {154, 155, 156} also produces a recognisable
     image but undercounts blocks because pages 150-153 and 157-4339 carry
-    additional data accesses that should also count. See EVALUATION.md §13.
+    additional data accesses that should also count. 
     """
     return JpegAttackConfig(
         start_range=range(54, 55),

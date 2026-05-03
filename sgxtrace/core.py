@@ -1,3 +1,11 @@
+"""
+Internal aggregator that re-exports the core trace primitives.
+
+Exists so other modules (e.g. interactive.py) can import everything
+they need from a single place without depending on the layout of the
+sub-modules. The public package-level API lives in __init__.py.
+"""
+
 from __future__ import annotations
 
 from .model import NavigatorState, StepResult, TraceData

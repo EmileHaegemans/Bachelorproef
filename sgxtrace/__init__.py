@@ -1,3 +1,17 @@
+"""
+sgxtrace: SGX-Step trace analysis and side-channel attack toolkit.
+
+Public re-exports:
+  - TraceData / StepResult / NavigatorState : data model
+  - load_vcd_trace, is_page_signal, normalize_page_name : parsing
+  - TraceNavigator, AttackRunner : navigation and event-driven attacks
+  - get_symbol_map, get_symbols_for_page, find_pages_for_symbol : ELF symbols
+  - get_page_intervals, get_top_pages, get_timeline_by_time,
+    get_access_trace_slice, get_transitions : analysis helpers
+  - JpegState, JpegAttackConfig, JpegReconstruction, JpegAttackResult,
+    attack_jpeg_trace, attack_jpeg_vcd, save_attack_outputs : JPEG attack
+"""
+
 from .analysis import (
     get_access_trace_slice,
     get_page_intervals,
