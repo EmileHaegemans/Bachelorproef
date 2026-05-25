@@ -714,8 +714,7 @@ def attack_jpeg_trace(
             # Only increment when the page actually matched the DATA_COUNT
             # range. Without this guard, a page that is in *no* state's range
             # leaves new_state == prev_state == DATA_COUNT and would falsely
-            # increment, over-counting blocks (the bug observed in v1, see
-            # EVALUATION.md §13).
+            # increment, over-counting blocks 
             data_counter += 1
 
         reconstruction.reconstruct_transition(prev_state, new_state, data_counter)
