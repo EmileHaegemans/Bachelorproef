@@ -21,6 +21,8 @@ Use case:
     the state machine evolves during the attack.
 """
 
+import sys
+
 from sgxtrace import TraceNavigator, load_vcd_trace
 from sgxtrace.jpeg import JpegAttackConfig, JpegAttackResult, JpegReconstruction, JpegState
 
@@ -50,8 +52,14 @@ def build_default_config() -> JpegAttackConfig:
     )
 
 
-def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackResult:
-    """Run the JPEG attack by manually driving the navigator."""
+def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH, verbose: bool = False) -> JpegAttackResult:
+    """Run the JPEG attack by manually driving the navigator.
+
+    When verbose is True, every state-machine transition and every
+    reconstructed block is logged as it happens, illustrating the
+    interactive (debugger-like) inspection mode. The default (False)
+    keeps the original behaviour unchanged.
+    """
     print("--- JPEG RECONSTRUCTION ATTACK (Navigator) ---")
 
     trace = load_vcd_trace(trace_path)
@@ -71,6 +79,7 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
     state = JpegState.PRE_START
     data_counter = 0
     processed_pages = 0
+    block_index = 0
 
     while True:
         result = nav.page_step()
@@ -99,13 +108,20 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
 
         reconstruction.reconstruct_transition(previous_state, new_state, data_counter)
 
+        if verbose and new_state != previous_state:
+            if previous_state == JpegState.DATA_COUNT and new_state != JpegState.DATA_COUNT:
+                block_index += 1
+                print(f"[bp t={result.time:<7}] blok #{block_index} gereconstrueerd   waarde={data_counter}")
+            else:
+                print(f"[bp t={result.time:<7}] {previous_state.value} -> {new_state.value}")
+
         if previous_state == JpegState.DATA_COUNT and new_state != JpegState.DATA_COUNT:
             data_counter = 0
 
         state = new_state
         processed_pages += 1
 
-        if processed_pages % 1000 == 0:
+        if not verbose and processed_pages % 1000 == 0:
             print(f"Processed {processed_pages} breakpoints, current state: {state.value}")
 
     if state == JpegState.DATA_COUNT and data_counter > 0:
@@ -139,4 +155,4 @@ def run_jpeg_attack_with_navigator(trace_path: str = TRACE_PATH) -> JpegAttackRe
 
 
 if __name__ == "__main__":
-    run_jpeg_attack_with_navigator()
+    run_jpeg_attack_with_navigator(verbose="--verbose" in sys.argv)
